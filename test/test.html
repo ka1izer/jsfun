@@ -1,0 +1,31 @@
+<html lang="no" style="min-height: 100%; position: relative">
+    <head>
+        <script type="text/javascript" src="test.js"></script>
+        <link rel="stylesheet" href="test.css" type="text/css">
+        <meta charset="utf-8" />
+	    <meta name="viewport" content="width=device-width,initial-scale=1">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    </head>
+    <body>
+        <div class="intro">
+            Start nytt spill 
+            <button onclick="startGame(); return false;"> med X spillere</button>
+            XXXXXXXXXXXX
+            <button onclick="joinGame(); return false;"> ny spiller</button>
+        </div>
+        <div class="qr-codes" style="display: none;">
+            Player2:
+            <div class="qr-code2" style="display: none;"></div>
+            <br><br><br><br><br><br><br>
+            
+            <div class="qr-code3" style="display: none;"></div>
+            <br><br><br><br>
+            <button onclick="actuallyStartGame()">Start game</button>
+        </div>
+        <!--bruk grid css layout-->
+        <div style="display:none" class="frames" id="frames">
+            
+        </div>
+        <button class="info" style="display:none" id="cluesButton" onclick="showClues(); return false;">Vis Spor</button>
+    </body>
+</html>

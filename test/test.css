@@ -1,0 +1,148 @@
+
+.info {
+    position: fixed;
+    right: 5px;
+    top: 15px;
+}
+
+.info2 {
+    position: fixed;
+    right: 5px;
+    bottom: 15px;
+}
+
+.frames {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.frame {
+    width: 240;
+    height: 300;
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.component {
+    position: absolute;
+    top: 0;
+    width: 240;
+    height: 300;
+    left: -30px;
+}
+
+.component > svg {
+    width: 240;
+    height: 300;
+}
+
+.face {
+    z-index: 0;
+}
+
+.mouth {
+    z-index: 1;
+}
+
+.eyes {
+    z-index: 1;
+}
+
+.hair {
+    z-index: 5;
+}
+
+.overlay {
+    z-index: 10;
+    background-color: black;
+    opacity: 0;
+}
+
+.black {
+    color: black;
+}
+
+.brown {
+    color: brown;
+}
+
+.blue {
+    color: blue;
+}
+
+.green {
+    color: green;
+}
+
+.brownFace {
+    color: rgb(141,85,36);
+}
+
+.yellowFace {
+    color: rgb(255,239,189);
+}
+
+.whiteFace {
+    color: rgb(255,219,172);
+}
+
+.redFace {
+    color: rgb(255, 175, 172);
+}
+
+
+.redHair {
+    color: red;
+}
+
+.yellowHair  {
+    color: yellow
+}
+
+.greyHair  {
+    color: grey;
+}
+
+.blackHair {
+    color: black;
+}
+
+.greenHair {
+    color: green;
+}
+
+.brownHair {
+    color: rgb(117, 59, 21);
+}
+
+.brownEyes {
+    color: rgb(77, 40, 15);
+}
+
+.blueEyes {
+    color: rgb(76, 81, 155);
+}
+
+.redEyes {
+    color: red;
+}
+
+.greenEyes {
+    color: green;
+}
+
+.name {
+    left: 20px;
+    top: 260px;
+    background-color: brown;
+    height: 20px;
+    width: 150px;
+    padding-left: 5px;
+    padding-top: 2px;
+    color: silver;
+    z-index: 10;
+    cursor: default;
+}

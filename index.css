@@ -1,0 +1,19 @@
+.fullsize {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.fullsizeImage {
+    /*width: 98%;
+    height: 100%;*/
+    width: 98vmin;
+    height: 98vmin;
+    position: relative;
+
+    /* Center and scale the image nicely */
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    /*background-size: contain;*/
+}

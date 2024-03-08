@@ -42,3 +42,7 @@
 .roomId {
 
 }
+
+#scannerVideo {
+    max-height: 50%;
+}

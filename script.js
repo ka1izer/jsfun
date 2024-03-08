@@ -156,9 +156,10 @@ export function joinRoomByCode() {
     //Comms.startComms(roomId, nick);
 }
 
-export function scanQR() {
+export function scanQR(event) {
     //https://github.com/nimiq/qr-scanner
     //QrScanner
+    event.preventDefault();
     document.getElementById("qrscanner").style.display = "";
     const videoEl = document.getElementById("scannerVideo");
     const qrScanner = new QrScanner(videoEl, 
@@ -167,7 +168,8 @@ export function scanQR() {
         },
         {
             returnDetailedScanResult: true, highlightScanRegion: true
-        })
+        });
+    return false;
 }
 
 export function disconnect() {

@@ -164,8 +164,9 @@ export function scanQR(event) {
     const videoEl = document.getElementById("scannerVideo");
     const qrScanner = new QrScanner(videoEl, 
         result => {
-            console.log("scanned qr", result);
+            alert("scanned qr", result);
             qrScanner.stop();
+            qrScanner.destroy();
         },
         {
             returnDetailedScanResult: true, highlightScanRegion: true

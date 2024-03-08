@@ -46,6 +46,8 @@
 #scannerVideo {
     width: 100vw !important;
     height: 60vh !important;
-    top: 0px;
+    position: absolute;
+    top: 0px !important;
+    left: 0px !important;
     object-fit: cover;
 }

@@ -5,20 +5,64 @@
 	    <meta name="viewport" content="width=device-width,initial-scale=1">
         <link rel="stylesheet" href="index.css" type="text/css">
     </head>
-    <body>
+    <body style="height:100vh">
         <!--Spør om userid (lagre i cookie og etterhvert pwa localstorage), la bruker opprette rom eller joine... redirect til url som har med romid, så reloads ikke ødelegger-->
-        <div style="position:absolute; z-index: 10">
-        <form action="#" id="nickForm">
-            <input type="text" placeholder="nickname" id="nickname">
-            <button type="submit">Change nick</button>
+        <form id="menuForm" class="menuForm">
+            <label id="labelNick"></label>
+            <!-- maybe a gear-icon here, for settings and stuff?-->
         </form>
-        <form>
+        <form action="#" id="nickForm" class="form">
+            <input type="text" placeholder="nickname" id="nickname">
+            <button type="submit">Set nickname</button>
+        </form>
+        <form id="chooseRoomForm" style="display:none" class="form">
             <button type="button" id="createRoom" >Create room</button>
             <button type="button" id="joinRoom" >Join room</button>
-            <button type="button" id="disconnect" >Disconnect</button> <!-- for testing...-->
-            <button type="button" id="becomeServer" >Become server</button> <!-- for testing...-->
+            <!--<button type="button" id="disconnect" >Disconnect</button>--> <!-- for testing...-->
+            <!--<button type="button" id="becomeServer" >Become server</button>--> <!-- for testing...-->
         </form>
-        <form>
+        <!-- DONE Demand nick before going further... -->
+        <!-- Redo to properly use room id etc...(remove hardcoding of roomid) Make sure that created room has unique roomId?! Or just join that room if not unique? -->
+        <!-- show room id and qr-code... share link (copy?), or just roomId, ++? -->
+        <!-- When joining room, allow user to use camera to scan qr-code (needs permission, I guess, but... Need a plugin to parse qr-code, but maybe not needed for camera???) -->
+        <!-- After join room, show a lobby-thing, where there are games, that they can vote for playing -->
+            <!-- show users in room. Chat? -->
+            <!-- allow changning server here, maybe original server can choose other to be server? -->
+            <!-- can leave room and go back to start.. -->
+        <!-- After starting a game (or before?), set up roles, player1-2-etc, observer, ++ -->
+        <!-- Fix Sprite rendering with size and placement of origin, etc... so don't need to override in each sub-class -->
+        <!-- Implement states, with "AboutToServe", whos serve is it, ++? etc..? -->
+        <!-- Implement scoring -->
+        <!-- More than 2 players? Could have up to 4? (3 would have to be a bit special, asymmetric, 2 against 1 (the 2 would need to hit smaller court, maybe other handicaps (speed?))) -->
+        <form id="roomForm" style="display:none" class="form form-top" >
+            <label>Room id: <h1 id="roomId" class="roomId"></h1></label>
+            <!--<div id="roomIdQR"></div>-->
+            <label>Other players can open site and input room id, or just scan qr-code and join directly</label>
+            <img id="roomIdQR" class="qrImage">
+            <!-- Show peers connected -->
+            <div id="peers" class="peers"></div>
+            <!-- show games in grid.. -->
+            <div class="gamesGrid" id="gamesGrid"></div>
+        </form>
+        <form id="joinRoomForm" style="display: none;" class="form">
+            <!-- input field to input roomId -->
+            <div>
+                <label>Input room id to join room</label>
+                <input type="text" id="roomCodeInput" placeholder="room id here"> <button type="submit">Join room</button>
+            </div>
+            <!-- qr-scanner to scan qr-code for roomId -->
+            <br>
+            <div>
+                <label>Or scan qr-code to join room</label>
+                <button id="scanQR">Scan QR code</button>
+                <div id="qrscanner" style="display: none;">
+                    <video id="scannerVideo"></video>
+                </div>
+            </div>
+
+        </form>
+        <div style="position:absolute; z-index: 10"></div>
+        <form style="display:none">
             <div>
                 Current peers: <label id="cntPeers"></label>
             </div>
@@ -29,15 +73,19 @@
             </div>
         </form>
         </div>
-        <div id="mainDiv"></div>
+        <div id="mainDiv" style="display:none"></div>
         <script type="module">
-            import {changeNick, createRoom, joinRoom, disconnect, becomeServer} from './script.js';
+            import {changeNick, createRoom, joinRoom, joinRoomByCode, scanQR, disconnect, becomeServer, goToNickStep} from './script.js';
 
             document.getElementById("nickForm").addEventListener('submit', changeNick);
             document.getElementById("createRoom").addEventListener('click', createRoom);
             document.getElementById("joinRoom").addEventListener('click', joinRoom);
-            document.getElementById("disconnect").addEventListener('click', disconnect);
-            document.getElementById("becomeServer").addEventListener('click', becomeServer);
+            //document.getElementById("disconnect").addEventListener('click', disconnect);
+            //document.getElementById("becomeServer").addEventListener('click', becomeServer);
+            document.getElementById("labelNick").addEventListener("click", goToNickStep);
+
+            document.getElementById("joinRoomForm").addEventListener("submit", joinRoomByCode);
+            document.getElementById("scanQR").addEventListener("click", scanQR);
         </script>
     </body>
 </html>

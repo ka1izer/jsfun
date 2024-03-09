@@ -44,11 +44,11 @@
 }
 
 #qrscanner {
-    width: 100vw;
+    width: 98vw;
     height: 50vh;
     margin: 0 auto;
     position: relative;
-    border: 1px solid red;
+    border: 1px solid black;
 }
 
 #scannerVideo {

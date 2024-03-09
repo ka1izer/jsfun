@@ -156,23 +156,38 @@ export function joinRoomByCode() {
     //Comms.startComms(roomId, nick);
 }
 
+let scanning = false;
+let originalScanButtonText = null;
 export function scanQR(event) {
     //https://github.com/nimiq/qr-scanner
     //QrScanner
     event.preventDefault();
-    document.getElementById("qrscanner").style.display = "";
-    const videoEl = document.getElementById("scannerVideo");
-    // Size issue ser ut til å ha noe med mobile device view å gjøre. Hvis velger dekstop view så fungerer det bedre... Og hvis zoomer litt ut på mobile view... How to fix??? Google først...
-    const qrScanner = new QrScanner(videoEl, 
-        result => {
-            alert("scanned qr!"+result.data+": ", result.data);
-            qrScanner.stop();
-            qrScanner.destroy();
-        },
-        {
-            returnDetailedScanResult: true, highlightScanRegion: true, highlightCodeOutline: true
-        });
-    qrScanner.start();
+    if (!scanning) {
+        scanning = true;
+        originalScanButtonText = document.getElementById("scanQR").innerHTML;
+        document.getElementById("scanQR").innerHTML = "Close scanner";
+        document.getElementById("qrscanner").style.display = "";
+        const videoEl = document.getElementById("scannerVideo");
+        // Size issue ser ut til å ha noe med mobile device view å gjøre. Hvis velger dekstop view så fungerer det bedre... Og hvis zoomer litt ut på mobile view... How to fix??? Google først...
+        const qrScanner = new QrScanner(videoEl, 
+            result => {
+                //alert("scanned qr!"+result.data+": ", result.data);
+                const uri = ""+result.data;
+                qrScanner.stop();
+                qrScanner.destroy();
+                roomId = uri.substring(uri.indexOf("#")+1);
+                window.location.hash = roomId;
+            },
+            {
+                returnDetailedScanResult: true, highlightScanRegion: true, highlightCodeOutline: true
+            });
+        qrScanner.start();
+    }
+    else {
+        scanning = false;
+        document.getElementById("scanQR").innerHTML = originalScanButtonText;
+        document.getElementById("qrscanner").style.display = "NONE";
+    }
     return false;
 }
 

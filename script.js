@@ -162,6 +162,7 @@ export function scanQR(event) {
     event.preventDefault();
     document.getElementById("qrscanner").style.display = "";
     const videoEl = document.getElementById("scannerVideo");
+    // Size issue ser ut til å ha noe med mobile device view å gjøre. Hvis velger dekstop view så fungerer det bedre... Og hvis zoomer litt ut på mobile view... How to fix??? Google først...
     const qrScanner = new QrScanner(videoEl, 
         result => {
             alert("scanned qr!", result.data);

@@ -81,10 +81,6 @@ function goToRoomStep() {
     const uri = QrCode.render("svg-uri", matrix, {white: true});
     document.getElementById("roomIdQR").src = uri;
 
-    // the qr code takes up a lot of space...?  can close
-    document.getElementById("showQr").style.display = "";
-
-
     /*const qrcode = new QRCode(document.getElementById("roomIdQR"), {
         text: window.location.href,
         width: 128,

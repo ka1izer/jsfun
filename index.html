@@ -40,7 +40,7 @@
             <!--<div id="roomIdQR"></div>-->
             <label>Other players can open site and input room id, or just scan qr-code and join directly</label>
             <img id="roomIdQR" class="qrImage">
-            <button id="showQr" style="display:none">Show QR code</button>
+            <button id="showQr" style="display: none;">Show QR code</button>
             <!-- Show peers connected -->
             <div id="peers" class="peers"></div>
             <!-- show games in grid.. -->
@@ -77,7 +77,7 @@
         </div>
         <div id="mainDiv" style="display:none"></div>
         <script type="module">
-            import {changeNick, createRoom, joinRoom, joinRoomByCode, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep} from './script.js?4';
+            import {changeNick, createRoom, joinRoom, joinRoomByCode, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep} from './script.js?5';
 
             document.getElementById("nickForm").addEventListener('submit', changeNick);
             document.getElementById("createRoom").addEventListener('click', createRoom);

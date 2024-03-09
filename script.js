@@ -52,6 +52,16 @@ function goToChooseRoomStep() {
     document.getElementById("chooseRoomForm").style.display = "";
 }
 
+export function showQRCode() {
+    document.getElementById("showQr").style.display = "NONE";
+    document.getElementById("roomIdQR").style.display = "";
+}
+
+export function hideQRCode() {
+    document.getElementById("showQr").style.display = "";
+    document.getElementById("roomIdQR").style.display = "NONE";
+}
+
 function goToRoomStep() {
     // show room, with roomId very visible, and QR code for it.
     // Show peers connected to room (nicknames)
@@ -70,6 +80,11 @@ function goToRoomStep() {
     const matrix = QrCode.generate(window.location.href);
     const uri = QrCode.render("svg-uri", matrix, {white: true});
     document.getElementById("roomIdQR").src = uri;
+
+    // the qr code takes up a lot of space...?  can close
+    document.getElementById("showQr").style.display = "";
+
+
     /*const qrcode = new QRCode(document.getElementById("roomIdQR"), {
         text: window.location.href,
         width: 128,
@@ -152,8 +167,7 @@ export function joinRoomByCode() {
     roomId = roomCode;
     window.location.hash = roomId;
 
-    // commented out for now...
-    //Comms.startComms(roomId, nick);
+    goToRoomStep();
 }
 
 let scanning = false;
@@ -173,10 +187,20 @@ export function scanQR(event) {
             result => {
                 //alert("scanned qr!"+result.data+": ", result.data);
                 const uri = ""+result.data;
-                qrScanner.stop();
-                qrScanner.destroy();
-                roomId = uri.substring(uri.indexOf("#")+1);
-                window.location.hash = roomId;
+                if (uri.indexOf("#") != -1) {
+                    roomId = uri.substring(uri.indexOf("#")+1);
+                    window.location.hash = roomId;
+                    qrScanner.stop();
+                    qrScanner.destroy();
+
+                    scanning = false;
+                    document.getElementById("scanQR").innerHTML = originalScanButtonText;
+                    document.getElementById("qrscanner").style.display = "NONE";
+                    goToRoomStep();
+                }
+                else {
+                    alert("no room id found in qr code...?");
+                }
             },
             {
                 returnDetailedScanResult: true, highlightScanRegion: true, highlightCodeOutline: true

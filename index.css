@@ -44,7 +44,7 @@
 }
 
 #qrscanner {
-    width: 430px;
+    width: 100vw;
     height: 50vh;
     margin: 0 auto;
     position: relative;

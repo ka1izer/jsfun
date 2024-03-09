@@ -169,7 +169,7 @@ export function scanQR(event) {
             qrScanner.destroy();
         },
         {
-            returnDetailedScanResult: true, highlightScanRegion: true
+            returnDetailedScanResult: true, highlightScanRegion: true, highlightCodeOutline: true
         });
     qrScanner.start();
     return false;

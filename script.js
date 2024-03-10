@@ -4,29 +4,86 @@ import * as Comms from './net/comms.js';
 import QrCode from './libs/qrcode.mjs';
 import QrScanner from './libs/qr-scanner.min.js';
 
-let playTennis = true;
-if (playTennis) {
-    import("./games/tennis/tennis.js").then((module) => {
+class Game {
+    id = "";
+    name = "";
+    maxTeams = 0;
+    maxPlayersPerTeam = 0;
+    players = [[]]; // 2-dim array, first is teams, second is players, so [["a", "c"], ["b"]] would be 2 players on team 1 and 1 player on team 2.
+    img;
+    constructor(id, name, maxTeams, maxPlayersPerTeam) {
+        this.id = id;
+        this.name = name;
+        this.maxTeams = maxTeams;
+        this.maxPlayersPerTeam = maxPlayersPerTeam;
+    }
 
-        Comms.setOnNewPeer( (peer, areWeServer) => {
-            console.log("onNewPeerrer!",peer);
-            console.log("we are server?", areWeServer);
-            module.onNewPeer(peer, areWeServer);
-        });
-        
-        Comms.setOnLoosePeer(peer => {
-            console.log("lost pewer", peer);
-            module.onLostPeer(peer);
-        });
-        
-        Comms.setOnMessage((peer, data) => {
-            //console.log("got message", data);
-            module.onMessage(peer, data);
-        });
-
-        module.initialize();
-    });
+    add(peer) {}
+    remove(peer) {
+        for (const team of this.players) {
+            const index = team.indexOf(peer);
+            if (index > -1) {
+                team.splice(index, 1);
+                return;
+            }
+        }
+    }
+    startGame() {}
 }
+let selectedGame = null;
+
+class Tennis extends Game {
+    constructor() {
+        super("tennis", "Tennis", 2, 2);
+        this.players = [[], []]; // initialize teams
+        // should load image for this game...
+    }
+
+    add(peer) {
+        // want to add first to first team, second to second team, third to first team and fourth to second team...
+        if (this.players[0].length == 0) {
+            this.players[0].push(peer);
+        }
+        else if (this.players[0].length == 1 && this.players[1].length == 0) {
+            this.players[1].push(peer);
+        }
+        else if (this.players[0].length == 1 && this.players[1].length >= 1) {
+            this.players[0].push(peer);
+        }
+        else if (this.players[0].length == 2 && this.players[1].length == 1) {
+            this.players[1].push(peer);
+        }
+    }
+
+    startGame() {
+        // could maybe place this in Game class? Just have path to module?? lets see with next game...?
+        import("./games/tennis/tennis.js").then((module) => {
+
+            // Må nok gjøre om disse, muligens (må ha onNewPeer ihvertfall tilgjengelig i script.js, ikke bare i tennis.js...)
+
+            Comms.setOnNewPeer( (peer, areWeServer) => {
+                console.log("onNewPeerrer!",peer);
+                console.log("we are server?", areWeServer);
+                module.onNewPeer(peer, areWeServer);
+            });
+            
+            Comms.setOnLoosePeer(peer => {
+                console.log("lost pewer", peer);
+                module.onLostPeer(peer);
+            });
+            
+            Comms.setOnMessage((peer, data) => {
+                //console.log("got message", data);
+                module.onMessage(peer, data);
+            });
+    
+            module.initialize();
+        });
+    }
+}
+
+const games = [new Tennis()];
+
 
 let roomId = null;
 
@@ -81,20 +138,51 @@ function goToRoomStep() {
     const uri = QrCode.render("svg-uri", matrix, {white: true});
     document.getElementById("roomIdQR").src = uri;
 
-    /*const qrcode = new QRCode(document.getElementById("roomIdQR"), {
-        text: window.location.href,
-        width: 128,
-        height: 128,
-        colorDark : "#000000",
-        colorLight : "#ffffff",
-        correctLevel : QRCode.CorrectLevel.H
-    });*/
+    // show peers connected
+    const peersDiv = document.getElementById("peers");
+    // Må muligens gjøre om fra setOnNewPeer til addNewPeerListener, eller noe sånt...
+    
+    // NOTDONE!
+
+    // show games...
+    const gamesDiv = document.getElementById("gamesGrid");
+    for (const game of games) {
+        const gameDiv = document.createElement("div");
+        gameDiv.id = game.id;
+        
+        const maxPlayers = game.maxTeams*game.maxPlayersPerTeam;
+        gameDiv.innerHTML = game.name + " (2-"+maxPlayers+")";
+        gameDiv.addEventListener("click", () => chooseGame(game));
+        for (const player of game.players) {
+
+        }
+        // *should* have visual tags for different team spots etc.., so players could add themselves to them...
+    }
+    // NOTDONE!
+
+    // commented out for now... noisy
+    //Comms.startComms(roomId, nick);
+}
+
+function chooseGame(game) {
+    if (selectedGame == game) {
+        selectedGame = null;
+        // remove us from game.players
+        game.remove({us: true, nick: nick});
+        // NOTDONE!
+    }
+    else {
+        selectedGame = game;
+        // add us to game.players
+        game.add({us: true, nick: nick});
+        //NOTDONE!
+    }
 }
 
 // fetch roomId from hash if have...
 if (window.location.hash != null && window.location.hash != "") {
     roomId = window.location.hash.substring(1); // remove leading hash (#)
-    //startComms();
+    goToRoomStep();
 }
 
 export function changeNick(event) {
@@ -128,9 +216,6 @@ export function createRoom() {
             // Rethink signaling. Tenk på den som en server-side, som skal koble sammen to og to klienter...?
 
     goToRoomStep();
-    
-    // commented out for now... noisy
-    //Comms.startComms(roomId, nick);
 }
 
 function hideForms() {
@@ -231,4 +316,5 @@ export function becomeServer() {
 /*function startComms() {
     //...
 }*/
+
 

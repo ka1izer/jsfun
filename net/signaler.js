@@ -152,7 +152,7 @@ export async function send(roomId, polite, peer, jsonPayload) {
     }
     jsonPayload.serverLocalId = serverLocalId;
     queue(() => {
-        console.log("sending offer on channel", channel);
+        //console.log("sending offer on channel", channel);
         return fetch(baseUrl + roomId + "/signals/"+channel+".json?rand="+Math.random(), { 
             method: 'PATCH',  // PATCH: update, PUT: replace
             headers: {
@@ -233,7 +233,7 @@ export async function getChannelsWithOldId(roomId, oldId) {
 }*/
 
 export function cleanupDisconnectMessages(roomId) {
-    console.log("loooooking", baseUrl + roomId + `/signals/disconnected.json?orderBy="payload/uniqueId"&startAt="${uniqueId}"`);
+    //console.log("loooooking", baseUrl + roomId + `/signals/disconnected.json?orderBy="payload/uniqueId"&startAt="${uniqueId}"`);
     //'Index not defined, add ".indexOn": "payload/unique…ms/testRoomId/signals/disconnected", to the rules'
     queue(() => fetch(baseUrl + roomId + `/signals/disconnected.json?orderBy="payload/uniqueId"&startAt="${uniqueId}"`, { 
         method: 'GET',  // PATCH: update, PUT: replace`, POST: push/add
@@ -262,7 +262,7 @@ export function cleanupDisconnectMessages(roomId) {
 export function removeChannels(roomId, toDelete) {
     
     for (const part of toDelete) {
-        console.log("deleteing", part);
+        //console.log("deleteing", part);
         queue(() => {
             return fetch(baseUrl + roomId + "/signals/"+part+".json?rand="+Math.random(), { 
                 method: 'DELETE', 
@@ -279,7 +279,7 @@ export function removeChannels(roomId, toDelete) {
 
 export async function removeParticipants(roomId, toDelete) {
     for (const part of toDelete) {
-        console.log("deleteing", part);
+        //console.log("deleteing", part);
         fetch(baseUrl + roomId + "/participants/"+part+".json", { 
             method: 'DELETE', 
             headers: { 
@@ -351,7 +351,7 @@ export function listenForParticipants(roomId, callback) {
 }
 
 export function stopListening() {
-    console.log("clearing channelListeners");
+    //console.log("clearing channelListeners");
     channelListeners = [];
 }
 
@@ -359,7 +359,7 @@ let channelListeners = [];
 let listeningForSignals = false;
 
 function listen(roomId, callback, type, channel) {
-    console.log("start listening on " + type, channel);
+    //console.log("start listening on " + type, channel);
     let abortController = null;
     let aborted = false;
     if (channel) {
@@ -397,7 +397,7 @@ function listen(roomId, callback, type, channel) {
                     // Check if the stream is done
                     if (done) {
                         // Log a message
-                        console.log('Stream finished');
+                        //console.log('Stream finished');
                         // wrong?// Return from the function
                         //return;
                         // Restart listener...
@@ -452,7 +452,7 @@ function listen(roomId, callback, type, channel) {
                                 for (const d of datas) {
                                     if (type == "participants") {
                                         const stopListening = await callback(d);
-                                        console.log("stopListening", stopListening);
+                                        //console.log("stopListening", stopListening);
                                         if (stopListening) {
                                             aborted = true;
                                             abortController.abort();
@@ -469,7 +469,7 @@ function listen(roomId, callback, type, channel) {
                                 datas.sort((a,b) => a.payload?.description != null && !b.payload?.description ? -1 : 0 ); // want descriptions before candidates
                                 //console.log("datas", JSON.stringify(datas));
                                 for (const d of datas) {
-                                    console.log("d", d);
+                                    //console.log("d", d);
                                     let actualData = d;
                                     if (!actualData.localId) {
                                         actualData = Object.values(d)[0];
@@ -480,30 +480,30 @@ function listen(roomId, callback, type, channel) {
                                         //console.log("channelListeneres, currentChannel", channelListeners, currentChannel)
                                         //console.log("d, actualData", d, actualData);
                                         const newServerLocalId = actualData.payload?.serverLocalId;
-                                        console.log("newServerLocalId, _serverLocalid, localId, currentChanenl", newServerLocalId, _serverLocalid, localId, currentChannel, newServerLocalId && newServerLocalId != _serverLocalid && newServerLocalId != localId)
-                                        console.log("channelListeners", channelListeners);
+                                        //console.log("newServerLocalId, _serverLocalid, localId, currentChanenl", newServerLocalId, _serverLocalid, localId, currentChannel, newServerLocalId && newServerLocalId != _serverLocalid && newServerLocalId != localId)
+                                        //console.log("channelListeners", channelListeners);
                                         if (newServerLocalId && newServerLocalId != _serverLocalid && newServerLocalId != localId) {
                                             // ser ut til at server har ny localId, vi må lytte på riktig channel!
                                             // Vi lytter nå på feil kanal!!!
                                             const oldChannel = Object.keys(channelListeners)[0];
                                             const oldCallback = channelListeners[oldChannel];
                                             if (oldCallback) {
-                                                console.log("listening on wrong channel! newServerLocalId, serverLocalId", newServerLocalId, _serverLocalid)
+                                                //console.log("listening on wrong channel! newServerLocalId, serverLocalId", newServerLocalId, _serverLocalid)
                                                 //channelListeners[oldChannel] = null;
                                                 channelListeners = []; // need to completely reset channelListeners, to avoid bloat (we are now clients, and only have 1 channel anyway)
                                                 oldCallback({closeChannel: true});
                                             }
                                             else {
-                                                console.log("channelListeners", channelListeners)
+                                                //console.log("channelListeners", channelListeners)
                                             }
                                         }
                                         if (channelListeners[currentChannel]) {
                                             // call callback function
-                                            console.log("calling callback!");
+                                            //console.log("calling callback!");
                                             channelListeners[currentChannel](actualData.payload);
-                                            console.log("done calling callback")
+                                            //console.log("done calling callback")
                                             if (actualData.payload.closeChannel) {
-                                                console.log("sending close to ", currentChannel);
+                                                //console.log("sending close to ", currentChannel);
                                                 if (_serverLocalid == localId) {
                                                     channelListeners[currentChannel] = null;
                                                 }

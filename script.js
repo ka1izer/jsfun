@@ -20,17 +20,23 @@ class Game {
 
     add(peer) {}
     remove(peer) {
+        console.log("remove", peer, this.players);
         for (const team of this.players) {
             const index = team.indexOf(peer);
+            console.log("index", index);
             if (index > -1) {
                 team.splice(index, 1);
+                console.log("found!, removed", team);
                 return;
             }
         }
     }
-    startGame() {}
+    startGame() {
+        gameStarted = true;
+    }
 }
 let selectedGame = null;
+let gameStarted = false;
 
 class Tennis extends Game {
     constructor() {
@@ -56,23 +62,24 @@ class Tennis extends Game {
     }
 
     startGame() {
+        super.startGame();
         // could maybe place this in Game class? Just have path to module?? lets see with next game...?
         import("./games/tennis/tennis.js").then((module) => {
 
             // Må nok gjøre om disse, muligens (må ha onNewPeer ihvertfall tilgjengelig i script.js, ikke bare i tennis.js...)
 
-            Comms.setOnNewPeer( (peer, areWeServer) => {
+            setOnNewPeer( (peer, areWeServer) => {
                 console.log("onNewPeerrer!",peer);
                 console.log("we are server?", areWeServer);
                 module.onNewPeer(peer, areWeServer);
             });
             
-            Comms.setOnLoosePeer(peer => {
+            setOnLoosePeer(peer => {
                 console.log("lost pewer", peer);
                 module.onLostPeer(peer);
             });
             
-            Comms.setOnMessage((peer, data) => {
+            setOnMessage((peer, data) => {
                 //console.log("got message", data);
                 module.onMessage(peer, data);
             });
@@ -95,6 +102,131 @@ if (nick != null && typeof(nick) != "undefined") {
     // have nick set, should just go to next step?
     document.getElementById("labelNick").innerHTML = nick;
     goToChooseRoomStep();
+}
+
+const thisPeer = {us: true, nick: nick};
+
+let lockedGame = false;
+
+const peers = [];
+let peersOtherThanServer = [];
+let weAreServer = true;
+
+let game_onNewPeer = ()=>{};
+let game_onLoosePeer = ()=>{};
+let game_onMessage = ()=>{};
+
+function onNewPeer(peer, areWeServer) {
+    peers.push(peer);
+    weAreServer = areWeServer;
+    if (!gameStarted) {
+        renderPeers();
+        if (weAreServer) {
+            for (const peer of peers) {
+                sendPeers(peer);
+            }
+            sendGamesStates(peer);
+        }
+    }
+    game_onNewPeer(peer, areWeServer);
+}
+function onLoosePeer(peer) {
+    peers.filter((value, index, arr) => {
+        if (value.nick == peer.nick) {
+            arr.splice(index, 1);
+            return true;
+        }
+        return false;
+    });
+    if (!gameStarted) {
+        renderPeers();
+        if (weAreServer) {
+            for (const peer of peers) {
+                sendPeers(peer);
+            }
+            sendGamesStates(peer);
+        }
+    }
+    game_onLoosePeer(peer);
+}
+function onMessage(peer, data) {
+    // some messages should only be handled here...
+    if (data.lobby) {
+        if (data.choseGame) {
+            const game = findGameById(data.choseGame);
+            console.log("foundGame", game)
+            game.add(peer);
+            renderGames();
+        }
+        else if (data.unChoseGame) {
+            /*games.filter((value, index, arr) => {
+                if (value.id == data.unChoseGame) {
+                    const game = value;
+                    game.remove(peer);
+                    renderGames();
+                    return true;
+                }
+                return false;
+            });*/
+            const game = findGameById(data.unChoseGame);
+            game.remove(peer);
+            renderGames();
+        }
+        else if (data.lockSelection || data.lockSelection === false) {
+            const actualPeer = findPeerByNick(peer.nick);
+            console.log("actualPeer", actualPeer)
+            actualPeer.lockedIn = data.lockSelection;
+            renderGames();
+        }
+        else if (data.gamesWithPlayers) {
+
+            // get this:
+            //[{id: <gameid>, players: [[{nick: <nickname>, lockedIn: true/false}]]}]
+            // dette er kun for ikke-servere...
+            for (const g of data.gamesWithPlayers) {
+                const game = findGameById(g.id);
+                game.players = g.players;
+            }
+            renderGames();
+        }
+        else if (data.peers) {
+            peersOtherThanServer = data.peers;
+            renderPeers();
+        }
+
+    }
+    else {
+        game_onMessage(peer, data);
+    }
+}
+Comms.setOnNewPeer(onNewPeer);
+Comms.setOnLoosePeer(onLoosePeer);
+Comms.setOnMessage(onMessage);
+function setOnNewPeer(func) {
+    game_onNewPeer = func;
+}
+function setOnLoosePeer(func) {
+    game_onLoosePeer = func;
+}
+function setOnMessage(func) {
+    game_onMessage = func;
+}
+
+function findPeerByNick(peerNick) {
+    return peers.filter((value, index, arr) => {
+        if (value.nick == peerNick) {
+            return true;
+        }
+        return false;
+    })[0];
+}
+function findGameById(gameId) {
+    return games.filter((value, index, arr) => {
+        if (value.id == gameId) {
+            return true;
+        }
+        return false;
+    })[0];
 }
 
 export function goToNickStep() {
@@ -139,44 +271,169 @@ function goToRoomStep() {
     document.getElementById("roomIdQR").src = uri;
 
     // show peers connected
-    const peersDiv = document.getElementById("peers");
-    // Må muligens gjøre om fra setOnNewPeer til addNewPeerListener, eller noe sånt...
+    renderPeers();
     
-    // NOTDONE!
-
     // show games...
+    renderGames();
+    
+
+    // commented out for now... noisy
+    Comms.startComms(roomId, nick);
+}
+
+function renderPeers() {
+    const peersDiv = document.getElementById("peers");
+    peersDiv.innerHTML = "";
+    for (const peer of peers) {
+        const peerDiv = document.createElement("div");
+        peerDiv.className = "peer";
+        //peerDiv.id = peer.nick;
+        peerDiv.innerHTML = peer.nick;
+        // NOTDONE! Should show something (crown?) if peer is server!
+        peersDiv.appendChild(peerDiv);
+    }
+    if (!weAreServer) {
+        for (const peer of peersOtherThanServer) {
+            const peerDiv = document.createElement("div");
+            peerDiv.className = "peer";
+            //peerDiv.id = peer.nick;
+            peerDiv.innerHTML = peer.nick;
+            // NOTDONE! Should show something (crown?) if peer is server!
+            peersDiv.appendChild(peerDiv);
+        }
+    }
+    else {
+        // show ourselves
+        const peerDiv = document.createElement("div");
+        peerDiv.className = "peer";
+        //peerDiv.id = peer.nick;
+        peerDiv.innerHTML = nick;
+        // NOTDONE! Should show something (crown?) if peer is server!
+        peersDiv.appendChild(peerDiv);
+    }
+}
+
+function renderGames() {
     const gamesDiv = document.getElementById("gamesGrid");
+    gamesDiv.innerHTML = "";
     for (const game of games) {
         const gameDiv = document.createElement("div");
+        gameDiv.className = "game";
         gameDiv.id = game.id;
         
         const maxPlayers = game.maxTeams*game.maxPlayersPerTeam;
         gameDiv.innerHTML = game.name + " (2-"+maxPlayers+")";
         gameDiv.addEventListener("click", () => chooseGame(game));
-        for (const player of game.players) {
-
+        for (let i=0; i < game.players.length; i++) {
+            const team = game.players[i];
+            for (const player of team) {
+                const div = document.createElement("div");
+                div.innerHTML = player.nick;
+                // should show if player has locked in their selection here... padlock icon or something? checkmark?
+                div.className = "player team"+(i+1);
+                if (player.lockedIn) {
+                    div.className += " lockedIn";
+                }
+                gameDiv.appendChild(div);
+            }
         }
-        // *should* have visual tags for different team spots etc.., so players could add themselves to them...
+        gamesDiv.appendChild(gameDiv);
+        // *should* have visual tags for different team spots etc.., so players could add themselves to them... skip for now...
     }
-    // NOTDONE!
-
-    // commented out for now... noisy
-    //Comms.startComms(roomId, nick);
 }
 
 function chooseGame(game) {
+    if (lockedGame) {
+        lockInGame(); // unlock
+    }
+    const lockButt = document.getElementById("lockInGame");
     if (selectedGame == game) {
         selectedGame = null;
-        // remove us from game.players
-        game.remove({us: true, nick: nick});
-        // NOTDONE!
+        game.remove(thisPeer);
+        lockButt.style.display = "none";
+        if (!weAreServer) {
+            peers.forEach(p => {
+                p.channel.send(JSON.stringify({lobby:true, unChoseGame: game.id}));
+            });
+        }
+        else {
+            // send state now, not just last change
+            sendGamesStates();
+        }
     }
     else {
         selectedGame = game;
-        // add us to game.players
-        game.add({us: true, nick: nick});
-        //NOTDONE!
+        game.add(thisPeer);
+        lockButt.style.display = "";
+        if (!weAreServer) {
+            peers.forEach(p => {
+                p.channel.send(JSON.stringify({lobby:true, choseGame: game.id}));
+            });
+        }
+        else {
+            // send state now, not just last change
+            sendGamesStates();
+        }
     }
+    renderGames();
+}
+
+function sendPeers(peer) {
+    const peersToSend = peers.map(p => {
+        return {nick: p.nick};
+    });
+    peer.channel.send(JSON.stringify({lobby: true, peers: peersToSend}));
+}
+
+function sendGamesStates(peer) {
+    const gamesWithPlayers = games.map(g => {
+        return {id: g.id, players: g.players.map(t => t.map(p => {
+            return {nick: p.nick, lockedIn: p.lockedIn};
+        })) };
+    });
+    if (peer) {
+        peer.channel.send(JSON.stringify({lobby: true, gamesWithPlayers: gamesWithPlayers}));
+    }
+    else {
+        peers.forEach(p => {
+            p.channel.send(JSON.stringify({lobby: true, gamesWithPlayers: gamesWithPlayers}));
+        });
+    }
+}
+
+let originalLockinGameButtonText = null;
+export function lockInGame(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    lockedGame = !lockedGame;
+    thisPeer.lockedIn = lockedGame;
+    if (lockedGame) {
+        originalLockinGameButtonText = document.getElementById("lockInGame").innerHTML;
+        document.getElementById("lockInGame").innerHTML = "Unlock selection";
+        if (!weAreServer) {
+            peers.forEach(p => {
+                p.channel.send(JSON.stringify({lobby:true, lockSelection: true}));
+            });
+        }
+        else {
+            // send state now, not just last change
+            sendGamesStates();
+        }
+    }
+    else {
+        document.getElementById("lockInGame").innerHTML = originalLockinGameButtonText;
+        if (!weAreServer) {
+            peers.forEach(p => {
+                p.channel.send(JSON.stringify({lobby:true, lockSelection: false}));
+            });
+        }
+        else {
+            // send state now, not just last change
+            sendGamesStates();
+        }
+    }
+    renderGames();
 }
 
 // fetch roomId from hash if have...
@@ -192,6 +449,7 @@ export function changeNick(event) {
     nick = newNick;
     //Comms.changedNick(nick);
     document.getElementById("labelNick").innerHTML = nick;
+    thisPeer.nick = nick;
     goToChooseRoomStep();
     return false;
 }

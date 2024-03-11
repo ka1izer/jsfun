@@ -379,16 +379,15 @@ async function newPeerConnection(peer, polite) {
                     }
                     return false;
                 });*/
-                let p = null;
                 peers.filter((value, index, arr) => {
                     if (value.connection == peerConnection) {
+                        onLoosePeer(value);
                         arr.splice(index, 1);
-                        p = value;
                         return true;
                     }
                     return false;
                 });
-                onLoosePeer(p);
+                
                 // should now generate new localId and try to restart connection...
                 Signaler.generateLocalId();
                 Signaler.lostServer(roomId);
@@ -467,16 +466,14 @@ async function newPeerConnection(peer, polite) {
                 }
                 return false;
             });*/
-            let p = null;
             peers.filter((value, index, arr) => {
                 if (value.connection == peerConnection) {
+                    onLoosePeer(value);
                     arr.splice(index, 1);
-                    p = value;
                     return true;
                 }
                 return false;
             });
-            onLoosePeer(p);
         }
     }
 

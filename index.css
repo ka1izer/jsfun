@@ -56,3 +56,29 @@
     height: 100%;
     object-fit: cover;
 }
+
+.peers {
+    margin-bottom: 5px;
+}
+
+.game {
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.player.lockedIn {
+    text-decoration: underline;
+}
+
+.player.team1 {
+    color: red;
+}
+.player.team2 {
+    color: blue;
+}
+.player.team3 {
+    color: green;
+}
+.player.team4 {
+    color: darkorchid;
+}

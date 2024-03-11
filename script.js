@@ -66,7 +66,8 @@ class Tennis extends Game {
         // could maybe place this in Game class? Just have path to module?? lets see with next game...?
         import("./games/tennis/tennis.js").then((module) => {
 
-            // Må nok gjøre om disse, muligens (må ha onNewPeer ihvertfall tilgjengelig i script.js, ikke bare i tennis.js...)
+            hideForms();
+            document.getElementById("mainDiv").style.display = "";
 
             setOnNewPeer( (peer, areWeServer) => {
                 console.log("onNewPeerrer!",peer);
@@ -85,8 +86,24 @@ class Tennis extends Game {
             });
     
             module.initialize();
+
+            // SHould send players! also peers, but dont handle peers as players! And we already have teams defined, so send with those!
+            // Next step is to properify the tennis game, to handle players properly and stuff. After that we can look at actual gameplay, with ball etc...
+            // send peers...
+            for (const peer of peers) {
+                module.onNewPeer(peer, weAreServer);
+            }
         });
     }
+}
+
+function startGame(gameToPlay) {
+    // find lockedIn game and start it...
+    if (weAreServer) {
+        sendStartGame(gameToPlay);
+    }
+    const game = findGameById(gameToPlay);
+    game.startGame();
 }
 
 const games = [new Tennis()];
@@ -144,38 +161,32 @@ function onLoosePeer(peer) {
             for (const peer of peers) {
                 sendPeers(peer);
             }
-            sendGamesStates(peer);
+            sendGamesStates();
         }
     }
     game_onLoosePeer(peer);
 }
 function onMessage(peer, data) {
     // some messages should only be handled here...
+    //console.log("got data", data);
     if (data.lobby) {
         if (data.choseGame) {
             const game = findGameById(data.choseGame);
-            console.log("foundGame", game)
             game.add(peer);
             renderGames();
         }
         else if (data.unChoseGame) {
-            /*games.filter((value, index, arr) => {
-                if (value.id == data.unChoseGame) {
-                    const game = value;
-                    game.remove(peer);
-                    renderGames();
-                    return true;
-                }
-                return false;
-            });*/
             const game = findGameById(data.unChoseGame);
             game.remove(peer);
             renderGames();
         }
         else if (data.lockSelection || data.lockSelection === false) {
             const actualPeer = findPeerByNick(peer.nick);
-            console.log("actualPeer", actualPeer)
             actualPeer.lockedIn = data.lockSelection;
+            const gameToPlayNow = readyToPlayGame();
+            if (gameToPlayNow) {
+                startGame(gameToPlayNow);
+            }
             renderGames();
         }
         else if (data.gamesWithPlayers) {
@@ -190,8 +201,18 @@ function onMessage(peer, data) {
             renderGames();
         }
         else if (data.peers) {
+            // Kun for ikke-servere...
             peersOtherThanServer = data.peers;
             renderPeers();
+        }
+        else if (data.gameToPlay) {
+            // start game!
+            startGame(data.gameToPlay);
+        }
+
+
+        if (weAreServer) {
+            sendGamesStates();
         }
 
     }
@@ -227,6 +248,27 @@ function findGameById(gameId) {
         }
         return false;
     })[0];
+}
+
+function readyToPlayGame() {
+    if (lockedGame && peers.filter((p, index, arr) => p.lockedIn == true).length == peers.length) {
+        // need to also check that we have a majority for one game? should return the game in that case?
+        const gamesWithCntPlayers = games.map(g => {
+            return {id: g.id, playerCnt: g.players.reduce( (acc, curr) => acc+curr.reduce( (acc2, curr2) => acc2+1, 0) , 0) };
+        });
+        //console.log("gamesWithCntPlayers", gamesWithCntPlayers)
+        //NOTDONE! Should really only start if all players select the same game...
+        let gameWithMost = null;
+        let highestCount = 0;
+        for (const g of gamesWithCntPlayers) {
+            if (g.playerCnt > highestCount) {
+                gameWithMost = g.id;
+                highestCount = g.playerCnt;
+            }
+        }
+        return gameWithMost;
+    }
+    return null;
 }
 
 export function goToNickStep() {
@@ -378,6 +420,12 @@ function chooseGame(game) {
     renderGames();
 }
 
+function sendStartGame(gameToPlay) {
+    peers.forEach(p => {
+        p.channel.send(JSON.stringify({lobby: true, gameToPlay: gameToPlay}) );
+    });
+}
+
 function sendPeers(peer) {
     const peersToSend = peers.map(p => {
         return {nick: p.nick};
@@ -408,6 +456,10 @@ export function lockInGame(event) {
     }
     lockedGame = !lockedGame;
     thisPeer.lockedIn = lockedGame;
+    const gameToPlayNow = readyToPlayGame();
+    if (gameToPlayNow) {
+        startGame(gameToPlayNow);
+    }
     if (lockedGame) {
         originalLockinGameButtonText = document.getElementById("lockInGame").innerHTML;
         document.getElementById("lockInGame").innerHTML = "Unlock selection";

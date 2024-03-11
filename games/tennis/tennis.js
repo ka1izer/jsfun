@@ -87,6 +87,9 @@ let camera = null;
 
 let playerType = 1;
 
+
+// Change this. Need to change from onNewPeer to addPlayer or something like that...
+// Change from opponent to otherPlayers? Or something. Think about it...
 export function onNewPeer(peer, areWeServer) {
     opponent.peer = peer;
     console.log("got new peer", peer);
@@ -138,7 +141,7 @@ export function initialize() {
     createEntities();
 
     // start gameloop..?MainLoop.start() ? Or in allImagesLoaded() maybe???
-
+    console.log("initialized tennis!")
 }
 
 function createEntities() {
@@ -213,6 +216,7 @@ function removeKeyListeners() {
 
 function allImagesLoaded() {
     // start gameloop here!???
+    console.log("starttting!");
     MainLoop.start();
 }
 

@@ -40,373 +40,6 @@ MainLoop.setEnd( (fps, panic) => {
     }
 });
 
-let mainDiv = null;
-let canvas = null;
-let ctx = null;
-
-let canvasHeight = null;
-let canvasWidth = null;
-
-let xRatio = null;
-let yRatio = null;
-
-const playArea = {
-    sX: 700*2.4,
-    sY: 700*1.0,
-    sZ: 1000
-};
-
-
-/*const player = {
-    x: playArea.sX/2, y: 600, // initial placement
-}*/
-let player = null;
-/*const opponent = {
-    //x: playArea.sX/2-100, y: 150, // initial placement
-    x: -100, y: -150, // initial placement
-    peer: null,
-}*/
-let opponent = null;
-let ball = null;
-const playerImages = {
-    idle: null, running: null, hitting: null
-};
-const opponentImages = {
-    idle: null, running: null, hitting: null
-};
-
-const keys = {
-    left: false,
-    right: false,
-    up: false,
-    down: false
-}
-
-let entities = [];
-let camera = null;
-
-let playerType = 1;
-
-
-// Change this. Need to change from onNewPeer to addPlayer or something like that...
-// Change from opponent to otherPlayers? Or something. Think about it...
-export function onNewPeer(peer, areWeServer) {
-    opponent.peer = peer;
-    console.log("got new peer", peer);
-    if (areWeServer) {
-        playerType = 1;
-        player.loadImages("./games/tennis/guy_idle.png");
-        opponent.loadImages("./games/tennis/frog_idle.png");
-    }
-    else {
-        playerType = 2;
-        player.loadImages("./games/tennis/frog_idle.png");
-        opponent.loadImages("./games/tennis/guy_idle.png");
-    }
-}
-export function onLostPeer(peer) {
-    opponent.peer = null;
-};
-export function onMessage(peer, data) {
-    // handle incoming messages...
-    // should get {x: 1, y:2} or similar for now...
-    opponent.position.x = -data.x;
-    opponent.position.y = -data.y;
-};
-
-export function initialize() {
-    // setup canvas etc....
-    mainDiv = document.getElementById("mainDiv");
-    mainDiv.style.zIndex = 0;
-    mainDiv.className = "fullsize fullsizeImage";
-    canvas = document.createElement('canvas');
-    canvas.id = "mainCanvas";
-    canvas.className = "fullsize";
-    canvas.style.zIndex = 1;
-    mainDiv.appendChild(canvas);
-
-    
-    // set background image on mainDiv (tennis court)
-    mainDiv.style.backgroundImage = "url('./games/tennis/background_court.jpg')";
-
-    // preload images/sprites
-    
-    // setup listeners (keys/mouse/touch++, 
-    setupKeyListeners();
-    
-    // prolly need onresize, too, since that changes size of canvas...
-    addEventListener("resize", onResize);
-    onResize(); // get initial size
-
-    createEntities();
-
-    // start gameloop..?MainLoop.start() ? Or in allImagesLoaded() maybe???
-    console.log("initialized tennis!")
-}
-
-function createEntities() {
-    //entities.push(new Court()); // for visualizing the court, and making sure camera is in proper position, etc..
-    //entities.push(new Court(2));
-    
-
-    const promises = [];
-    /*promises.push(loadPlayerImages() );
-    promises.push(loadOpponentImages() );*/
-    player = new Player(new Vertex(150,-180,0));
-    promises.push(player.loadImages("./games/tennis/guy_idle.png") );
-    entities.push(player);
-
-    opponent = new Player(new Vertex(-150,180,0));
-    promises.push(opponent.loadImages("./games/tennis/frog_idle.png") );
-    entities.push(opponent);
-
-    ball = new Ball(new Vertex(0,0,200)); // just for fun, for now...
-    promises.push(ball.loadImages() );
-    entities.push(ball);
-
-    Promise.all(promises).then(allImagesLoaded); // allImagesLoaded is called when all images are done loading
-
-
-    //camera = new Camera(new Vertex(0, -185, 517), new Vertex(0, 0, 0));
-    //camera = new Camera(new Vertex(0, -200, 617), new Vertex(0, 350, 0));
-    camera = new Camera(new Vertex(0, -1500, 1000), new Vertex(0, 800, 0));
-}
-
-function keyDown(e) {
-    if (e.code === "ArrowUp" || e.key.toUpperCase() == "W") {
-        keys.up = true;
-    } else if (e.code === "ArrowDown" || e.key.toUpperCase() == "S") {
-        keys.down = true;
-    } else if (e.code === "ArrowLeft" || e.key.toUpperCase() == "A") {
-        keys.left = true;
-    } else if (e.code === "ArrowRight" || e.key.toUpperCase() == "D") {
-        keys.right = true;
-    }
-    else if (e.code === "Space" || e.code === "Enter") {
-        // not sure yet...   
-    }
-}
-
-function keyUp(e) {
-    if (e.code === "ArrowUp" || e.key.toUpperCase() == "W") {
-        keys.up = false;
-    } else if (e.code === "ArrowDown" || e.key.toUpperCase() == "S") {
-        keys.down = false;
-    } else if (e.code === "ArrowLeft" || e.key.toUpperCase() == "A") {
-        keys.left = false;
-    } else if (e.code === "ArrowRight" || e.key.toUpperCase() == "D") {
-        keys.right = false;
-    }
-    else if (e.code === "Space" || e.code === "Enter") {
-        const plr = player; // testing with close player
-        ball.reset(plr);
-        ball.testShoot(plr);
-    }
-}
-
-function setupKeyListeners() {
-    addEventListener("keydown", keyDown);
-    addEventListener("keyup", keyUp);
-}
-
-function removeKeyListeners() {
-    removeEventListener("keydown", keyDown);
-    removeEventListener("keyup", keyUp);
-}
-
-function allImagesLoaded() {
-    // start gameloop here!???
-    console.log("starttting!");
-    MainLoop.start();
-}
-
-function loadPlayerImages() {
-    const img = new Image();
-    img.src = "./games/tennis/guy_idle.png";
-    const promise = new Promise(resolve => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-    });
-
-    playerImages.idle = img;
-    playerImages.idleMax = 10;
-    playerImages.idleStep = 0;
-
-    return promise;
-}
-
-function loadOpponentImages() {
-    const img = new Image();
-    img.src = "./games/tennis/frog_idle.png";
-    const promise = new Promise(resolve => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-    });
-
-    opponentImages.idle = img;
-    opponentImages.idleMax = 10;
-    opponentImages.idleStep = 0;
-
-    return promise;
-}
-
-function movePlayer(delta) {
-    if (keys.down) {
-        player.position.y -= .5 * delta;
-        if (player.position.y < -450) {
-            player.position.y = -450;
-        }
-    }
-    else if (keys.up) {
-        player.position.y += .5 * delta;
-        /*if (player.position.y > 210) {
-            player.position.y = 210;
-        }*/
-        if (player.position.y > -10) {
-            player.position.y = -10;
-        }
-    }
-    if (keys.left) {
-        player.position.x -= .6 * delta;
-        if (player.position.x < -580) {
-            player.position.x = -580;
-        }
-    }
-    else if (keys.right) {
-        player.position.x += .6 * delta;
-        if (player.position.x > 580) {
-            player.position.x = 580;
-        }
-    }
-    //console.log("player pos", player.position);
-
-
-    /*// TEMP:
-    // move angle
-    if (keys.down) {
-        //camera.position.z -= .05*delta;
-        //console.log("camera.z", camera.position.z)
-        
-        camera.position.y -= .05* delta;
-        console.log("camera.y", camera.position.y)
-        camera.reCalculateAngles();
-    }
-    else if (keys.up) {
-        //camera.position.z += .05*delta;
-        //console.log("camera.z", camera.position.z)
-        
-        camera.position.y += .05* delta;
-        console.log("camera.y", camera.position.y)
-        camera.reCalculateAngles();
-    }
-    if (keys.right) {
-        camera.position.x += .05* delta;
-        console.log("camera.x", camera.position.x)
-        //camera.reCalculateAngles();
-    }
-    else if (keys.left) {
-        camera.position.x -= .05* delta;
-        console.log("camera.x", camera.position.x)
-        //camera.reCalculateAngles();
-    }*/
-    
-
-    // need checks, so dont move more up than net, not below screen, and not outside court?
-}
-
-function sendNewPosition() {
-    if (opponent.peer?.channel) {
-        const ch = opponent.peer.channel;
-        ch.send(JSON.stringify(player.position));
-    }
-}
-
-function drawOpponent(ctx) {
-
-    const img = opponentImages.idle; // only using idle for now...
-    //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
-    // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
-
-    // need to move player from virtual playArea to screen. Just simple for now, before 3d...
-    // need to flip it compared to player, since opponent is on "other side of the screen"...
-    // how to flip? rotate playArea-ish...?
-    //notDone!; // go to 3d!! (https://www.sitepoint.com/building-3d-engine-javascript/)
-    const x = (playArea.sX/2 - opponent.x) * xRatio; // this needs calibration, or I should just go to 3d...?
-    const y = (playArea.sY/2 - opponent.y) * yRatio;
-
-    //console.log("x,y", x,y, canvas.width, canvas.height)
-
-    ctx.drawImage(img, 0+(32*opponentImages.idleStep), 0, 32, 32, x, y, 32, 32);
-    if (opponentImages.idleMax == opponentImages.idleStep) {
-        opponentImages.idleStep = 0;
-    }
-    else {
-        opponentImages.idleStep++;
-    }
-}
-
-function drawPlayer(ctx) {
-
-    const img = playerImages.idle; // only using idle for now...
-    //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
-    // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
-
-    // need to move player from virtual playArea to screen. Just simple for now, before 3d...
-    const x = player.x * xRatio;
-    const y = player.y * yRatio;
-
-    //console.log("x,y", x,y, canvas.width, canvas.height)
-
-    ctx.drawImage(img, 0+(32*playerImages.idleStep), 0, 32, 32, x, y, 32, 32);
-    if (playerImages.idleMax == playerImages.idleStep) {
-        playerImages.idleStep = 0;
-    }
-    else {
-        playerImages.idleStep++;
-    }
-}
-
-/*// background image is 500x361 (currently)
-const imageWidth = 500;
-const imageHeight = 361;
-const imageRatio = imageWidth/imageHeight;*/
-
-function onResize(event) {
-    //canvas.width = canvas.offsetWidth;
-    //canvas.height = canvas.offsetHeight;
-
-    canvasWidth = canvas.offsetWidth;
-    canvasHeight = canvas.offsetHeight;
-
-    //console.log("dims", canvasWidth, canvasHeight, canvas.width, canvas.height)
-  
-    // If the screen device has a pixel ratio over 1
-    // We render the canvas twice bigger to make it sharper (e.g. Retina iPhone)
-    if (window.devicePixelRatio > 1) {
-        canvas.width = canvas.clientWidth * 2;
-        canvas.height = canvas.clientHeight * 2;
-        ctx = canvas.getContext("2d");
-        ctx.scale(2, 2);
-    } else {
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
-    }
-
-}
-
-export function uninitialize() {
-    // stop gameloop..?MainLoop.stop()
-    // remove comms listeners...
-    // remove listeners (keys/mouse/touch++)
-    removeEventListener("resize", onResize);
-    removeKeyListeners();
-    // unload images?? (possible?) (should be just to remove any references to them...)
-    // remove canvas etc...
-    
-    
-}
-
-
 class Vertex {
     constructor(x, y, z) {
         this.x = parseFloat(x);
@@ -598,13 +231,17 @@ class Sprite extends Entity { // sprites: players, possibly ball,...? Rackets?
     }
 }
 class Player extends Sprite {
+    peer;
+    playPosition = []; // [0, 0] is team1, first player, [0,1] is same team, second player. [1,0] is second team first player, etc...
     images = {
         idle: {
             img: null, maxSteps: 0, step: 0,
         },
     };
-    constructor(position) {
+    imagePromises = [];
+    constructor(position, peer) {
         super(position);
+        this.peer = peer;
     }
 
     loadImages(url) {
@@ -619,6 +256,7 @@ class Player extends Sprite {
         this.images.idle.maxSteps = 10;
         this.images.idle.step = 0;
 
+        this.imagePromises.push(promise);
         return promise;
     }
 
@@ -773,6 +411,534 @@ class Court extends Entity {
         }
     }
 }
+
+
+let mainDiv = null;
+let canvas = null;
+let ctx = null;
+
+let canvasHeight = null;
+let canvasWidth = null;
+
+let xRatio = null;
+let yRatio = null;
+
+const playArea = {
+    sX: 700*2.4,
+    sY: 700*1.0,
+    sZ: 1000
+};
+
+
+/*const player = {
+    x: playArea.sX/2, y: 600, // initial placement
+}*/
+let player = new Player(); // just to let ide help us with type...
+/*const opponent = {
+    //x: playArea.sX/2-100, y: 150, // initial placement
+    x: -100, y: -150, // initial placement
+    peer: null,
+}*/
+let players = []; // [["player1"], ["player2"]], or up to [["player1", "player3"],["player2", "player4"]]
+const peers = [];
+let weAreServer = true;
+//let opponent = null;
+let ball = new Ball(new Vertex(0,0,200));
+const playerImages = {
+    idle: null, running: null, hitting: null
+};
+const opponentImages = {
+    idle: null, running: null, hitting: null
+};
+
+const keys = {
+    left: false,
+    right: false,
+    up: false,
+    down: false
+}
+
+let entities = [];
+let camera = null;
+
+let playerType = 1;
+let nick = null;
+export function setPlayers(allPlayers, areWeServer, ourNick) {
+    weAreServer = areWeServer;
+    nick = ourNick;
+
+    allPlayers.forEach((team, teamIndex, teamArr) => {
+        team.forEach((plrPeer, plrIndex, plrArr) => {
+            const plr = new Player(new Vertex(0,0,0), plrPeer);
+            if (plrPeer.nick == nick) {
+                player = plr;
+            }
+            plr.playPosition = [teamIndex, plrIndex];
+            if (teamIndex == 0) {
+                if (plrIndex == 0) {
+                    // Should have other images for sprites facing away from camera...!!
+                    // NOTDONE!
+                    plr.loadImages("./games/tennis/guy_idle.png");
+                }
+                else {
+                    plr.loadImages("./games/tennis/frog_idle.png");
+                }
+            }
+            else {
+                if (plrIndex == 0) {
+                    plr.loadImages("./games/tennis/pink_idle.png");
+                }
+                else {
+                    plr.loadImages("./games/tennis/mask_idle.png");
+                }
+            }
+            players.push(plr);
+        });
+    });
+}
+
+function getPlayerByNick(nickToFind) {
+    for (const plr of players) {
+        if (plr.peer.nick == nickToFind) {
+            return plr;
+        }
+    }
+    return null;
+}
+// Change this. Need to change from onNewPeer to addPlayer or something like that...
+// Change from opponent to otherPlayers? Or something. Think about it...
+// Maybe leave player as is, but add players, where player is one of them? Or maybe team1 and team2? No need for array for team, when we know there may max be 2? Or??
+// Maybe best with players = [], so we don't have to reinvent for any other games?
+export function onNewPeer(peer, areWeServer) {
+    weAreServer = areWeServer;
+    peers.push(peer);
+
+    
+    const plr = getPlayerByNick(peer.nick);
+    if (plr) {
+        plr.peer = peer;
+    }
+
+    /*opponent.peer = peer;
+    console.log("got new peer", peer);
+    if (areWeServer) {
+        playerType = 1;
+        player.loadImages("./games/tennis/guy_idle.png");
+        opponent.loadImages("./games/tennis/frog_idle.png");
+    }
+    else {
+        playerType = 2;
+        player.loadImages("./games/tennis/frog_idle.png");
+        opponent.loadImages("./games/tennis/guy_idle.png");
+    }*/
+}
+export function onLostPeer(peer) {
+    const plr = getPlayerByNick(peer.nick);
+    if (plr) {
+        plr.peer = null;
+        // should remove player??
+        // NOTDONE!
+    }
+    //opponent.peer = null;
+};
+export function onMessage(peer, data) {
+    // handle incoming messages...
+    // should get {x: 1, y:2} or similar for now...
+    //const plr = players.filter(p => p.nick == peer.nick);
+    // THIS NEEDS TO BE CHANGED! (need which players position, and should also have ball position (and velocities?))
+    //opponent.position.x = -data.x;
+    //opponent.position.y = -data.y;
+
+    getNewPositions(peer, data);
+};
+
+export function initialize() {
+    // setup canvas etc....
+    mainDiv = document.getElementById("mainDiv");
+    mainDiv.style.zIndex = 0;
+    mainDiv.className = "fullsize fullsizeImage";
+    canvas = document.createElement('canvas');
+    canvas.id = "mainCanvas";
+    canvas.className = "fullsize";
+    canvas.style.zIndex = 1;
+    mainDiv.appendChild(canvas);
+
+    
+    // set background image on mainDiv (tennis court)
+    mainDiv.style.backgroundImage = "url('./games/tennis/background_court.jpg')";
+
+    // preload images/sprites
+    
+    // setup listeners (keys/mouse/touch++, 
+    setupKeyListeners();
+    
+    // prolly need onresize, too, since that changes size of canvas...
+    addEventListener("resize", onResize);
+    onResize(); // get initial size
+
+    createEntities();
+
+    // start gameloop..?MainLoop.start() ? Or in allImagesLoaded() maybe???
+    console.log("initialized tennis!")
+}
+
+function createEntities() {
+    //entities.push(new Court()); // for visualizing the court, and making sure camera is in proper position, etc..
+    //entities.push(new Court(2));
+    
+
+    const promises = [];
+    /*promises.push(loadPlayerImages() );
+    promises.push(loadOpponentImages() );*/
+    //player = new Player(new Vertex(150,-180,0));
+    /*promises.push(player.loadImages("./games/tennis/guy_idle.png") );
+    entities.push(player);
+
+    opponent = new Player(new Vertex(-150,180,0));
+    promises.push(opponent.loadImages("./games/tennis/frog_idle.png") );
+    entities.push(opponent);*/
+
+    for (const plr of players) {
+        for (const pr of plr.imagePromises) {
+            promises.push(pr);
+        }
+        if (plr.playPosition[0] == 0 && plr.playPosition[1] == 0) {
+            plr.position.x = 150;
+            plr.position.y = -180;
+        }
+        else if (plr.playPosition[0] == 0 && plr.playPosition[1] == 1) {
+            plr.position.x = -150;
+            plr.position.y = -180;
+        }
+        else if (plr.playPosition[0] == 1 && plr.playPosition[1] == 0) {
+            plr.position.x = -150;
+            plr.position.y = 180;
+        }
+        else if (plr.playPosition[0] == 1 && plr.playPosition[1] == 1) {
+            plr.position.x = 150;
+            plr.position.y = 180;
+        }
+        if (player.playPosition[0] == 1) {
+            // we are on the other team, switch around...
+            plr.position.x *= -1;
+            plr.position.y *= -1;
+        }
+        entities.push(plr);
+    }
+
+    //ball = new Ball(new Vertex(0,0,200)); // just for fun, for now...
+    promises.push(ball.loadImages() );
+    entities.push(ball);
+
+    Promise.all(promises).then(allImagesLoaded); // allImagesLoaded is called when all images are done loading
+
+
+    //camera = new Camera(new Vertex(0, -185, 517), new Vertex(0, 0, 0));
+    //camera = new Camera(new Vertex(0, -200, 617), new Vertex(0, 350, 0));
+    camera = new Camera(new Vertex(0, -1500, 1000), new Vertex(0, 800, 0));
+}
+
+function keyDown(e) {
+    if (e.code === "ArrowUp" || e.key.toUpperCase() == "W") {
+        keys.up = true;
+    } else if (e.code === "ArrowDown" || e.key.toUpperCase() == "S") {
+        keys.down = true;
+    } else if (e.code === "ArrowLeft" || e.key.toUpperCase() == "A") {
+        keys.left = true;
+    } else if (e.code === "ArrowRight" || e.key.toUpperCase() == "D") {
+        keys.right = true;
+    }
+    else if (e.code === "Space" || e.code === "Enter") {
+        // not sure yet...   
+    }
+}
+
+function keyUp(e) {
+    if (e.code === "ArrowUp" || e.key.toUpperCase() == "W") {
+        keys.up = false;
+    } else if (e.code === "ArrowDown" || e.key.toUpperCase() == "S") {
+        keys.down = false;
+    } else if (e.code === "ArrowLeft" || e.key.toUpperCase() == "A") {
+        keys.left = false;
+    } else if (e.code === "ArrowRight" || e.key.toUpperCase() == "D") {
+        keys.right = false;
+    }
+    else if (e.code === "Space" || e.code === "Enter") {
+        const plr = player; // testing with close player
+        ball.reset(plr);
+        ball.testShoot(plr);
+    }
+}
+
+function setupKeyListeners() {
+    addEventListener("keydown", keyDown);
+    addEventListener("keyup", keyUp);
+}
+
+function removeKeyListeners() {
+    removeEventListener("keydown", keyDown);
+    removeEventListener("keyup", keyUp);
+}
+
+function allImagesLoaded() {
+    // start gameloop here!???
+    console.log("starttting!");
+    MainLoop.start();
+}
+
+/*function loadPlayerImages() {
+    const img = new Image();
+    img.src = "./games/tennis/guy_idle.png";
+    const promise = new Promise(resolve => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+    });
+
+    playerImages.idle = img;
+    playerImages.idleMax = 10;
+    playerImages.idleStep = 0;
+
+    return promise;
+}
+
+function loadOpponentImages() {
+    const img = new Image();
+    img.src = "./games/tennis/frog_idle.png";
+    const promise = new Promise(resolve => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+    });
+
+    opponentImages.idle = img;
+    opponentImages.idleMax = 10;
+    opponentImages.idleStep = 0;
+
+    return promise;
+}*/
+
+function movePlayer(delta) {
+    if (keys.down) {
+        player.position.y -= .5 * delta;
+        if (player.position.y < -450) {
+            player.position.y = -450;
+        }
+    }
+    else if (keys.up) {
+        player.position.y += .5 * delta;
+        /*if (player.position.y > 210) {
+            player.position.y = 210;
+        }*/
+        if (player.position.y > -10) {
+            player.position.y = -10;
+        }
+    }
+    if (keys.left) {
+        player.position.x -= .6 * delta;
+        if (player.position.x < -580) {
+            player.position.x = -580;
+        }
+    }
+    else if (keys.right) {
+        player.position.x += .6 * delta;
+        if (player.position.x > 580) {
+            player.position.x = 580;
+        }
+    }
+    //console.log("player pos", player.position);
+
+
+    /*// TEMP:
+    // move angle
+    if (keys.down) {
+        //camera.position.z -= .05*delta;
+        //console.log("camera.z", camera.position.z)
+        
+        camera.position.y -= .05* delta;
+        console.log("camera.y", camera.position.y)
+        camera.reCalculateAngles();
+    }
+    else if (keys.up) {
+        //camera.position.z += .05*delta;
+        //console.log("camera.z", camera.position.z)
+        
+        camera.position.y += .05* delta;
+        console.log("camera.y", camera.position.y)
+        camera.reCalculateAngles();
+    }
+    if (keys.right) {
+        camera.position.x += .05* delta;
+        console.log("camera.x", camera.position.x)
+        //camera.reCalculateAngles();
+    }
+    else if (keys.left) {
+        camera.position.x -= .05* delta;
+        console.log("camera.x", camera.position.x)
+        //camera.reCalculateAngles();
+    }*/
+    
+
+    // need checks, so dont move more up than net, not below screen, and not outside court?
+}
+
+function getNewPositions(peer, data) {
+    if (data.players) {
+        // update from server
+        for (let i = 0; i < players.length; i++) {
+            if (players[i].peer.nick == nick) {
+                // dont update ourselves... skip
+                continue;
+            }
+            //playPosition [0, 0] is team1, first player, [0,1] is same team, second player. [1,0] is second team first player, etc...
+            if (data.serverPosition[0] == player.playPosition[0]) {
+                players[i].position.x = data.players[i].pos.x;
+                players[i].position.y = data.players[i].pos.y;
+                players[i].position.z = data.players[i].pos.z;
+            }
+            else {
+                players[i].position.x = -data.players[i].pos.x;
+                players[i].position.y = -data.players[i].pos.y;
+                players[i].position.z = data.players[i].pos.z;
+            }
+        }
+        if (player.playPosition[0] == 0) {
+            ball.position.x = data.ball.pos.x;
+            ball.position.y = data.ball.pos.y;
+            ball.position.z = data.ball.pos.z;
+        }
+        else {
+            ball.position.x = -data.ball.pos.x;
+            ball.position.y = -data.ball.pos.y;
+            ball.position.z = data.ball.pos.z;
+        }
+    }
+    else if (data.player) {
+        // update from player to server
+        const plr = getPlayerByNick(peer.nick);
+        if (plr) {
+            if (player.playPosition[0] == plr.playPosition[0]) {
+                plr.position.x = data.player.pos.x;
+                plr.position.y = data.player.pos.y;
+                plr.position.z = data.player.pos.z;
+            }
+            else {
+                plr.position.x = -data.player.pos.x;
+                plr.position.y = -data.player.pos.y;
+                plr.position.z = data.player.pos.z;
+            }
+        }
+    }
+}
+
+function sendNewPosition() {
+    if (weAreServer) {
+        // send current state
+        const state = {serverPosition: player.playPosition, players: [], ball: {pos: ball.position}};
+        for (const plr of players) {
+            state.players.push({pos: plr.position/*, state: xxx*/}); // assume fixed players-arrays, so all have same player in [0], etc..
+        }
+        const toSend = JSON.stringify(state);
+        peers.forEach(p => {
+            p.channel.send(toSend);
+        });
+    }
+    else {
+        // just send ourselves (+ ball on hit)
+        peers[0].channel.send(JSON.stringify({player: {/*playPosition: player.playPosition,*/ pos: player.position}/*, ball and stuff (serving/hitting/etc..) */}));
+    }
+    /*// change! server sends all positions to everyone, non-server sends their own position to server (need to send ball position from server, and prolly from non-server on ball-hit)
+    if (opponent.peer?.channel) {
+        const ch = opponent.peer.channel;
+        ch.send(JSON.stringify(player.position));
+    }*/
+}
+
+/*function drawOpponent(ctx) {
+
+    const img = opponentImages.idle; // only using idle for now...
+    //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
+    // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
+
+    // need to move player from virtual playArea to screen. Just simple for now, before 3d...
+    // need to flip it compared to player, since opponent is on "other side of the screen"...
+    // how to flip? rotate playArea-ish...?
+    //notDone!; // go to 3d!! (https://www.sitepoint.com/building-3d-engine-javascript/)
+    const x = (playArea.sX/2 - opponent.x) * xRatio; // this needs calibration, or I should just go to 3d...?
+    const y = (playArea.sY/2 - opponent.y) * yRatio;
+
+    //console.log("x,y", x,y, canvas.width, canvas.height)
+
+    ctx.drawImage(img, 0+(32*opponentImages.idleStep), 0, 32, 32, x, y, 32, 32);
+    if (opponentImages.idleMax == opponentImages.idleStep) {
+        opponentImages.idleStep = 0;
+    }
+    else {
+        opponentImages.idleStep++;
+    }
+}*/
+
+/*function drawPlayer(ctx) {
+
+    const img = playerImages.idle; // only using idle for now...
+    //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
+    // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
+
+    // need to move player from virtual playArea to screen. Just simple for now, before 3d...
+    const x = player.x * xRatio;
+    const y = player.y * yRatio;
+
+    //console.log("x,y", x,y, canvas.width, canvas.height)
+
+    ctx.drawImage(img, 0+(32*playerImages.idleStep), 0, 32, 32, x, y, 32, 32);
+    if (playerImages.idleMax == playerImages.idleStep) {
+        playerImages.idleStep = 0;
+    }
+    else {
+        playerImages.idleStep++;
+    }
+}*/
+
+/*// background image is 500x361 (currently)
+const imageWidth = 500;
+const imageHeight = 361;
+const imageRatio = imageWidth/imageHeight;*/
+
+function onResize(event) {
+    //canvas.width = canvas.offsetWidth;
+    //canvas.height = canvas.offsetHeight;
+
+    canvasWidth = canvas.offsetWidth;
+    canvasHeight = canvas.offsetHeight;
+
+    //console.log("dims", canvasWidth, canvasHeight, canvas.width, canvas.height)
+  
+    // If the screen device has a pixel ratio over 1
+    // We render the canvas twice bigger to make it sharper (e.g. Retina iPhone)
+    if (window.devicePixelRatio > 1) {
+        canvas.width = canvas.clientWidth * 2;
+        canvas.height = canvas.clientHeight * 2;
+        ctx = canvas.getContext("2d");
+        ctx.scale(2, 2);
+    } else {
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+    }
+
+}
+
+export function uninitialize() {
+    // stop gameloop..?MainLoop.stop()
+    // remove comms listeners...
+    // remove listeners (keys/mouse/touch++)
+    removeEventListener("resize", onResize);
+    removeKeyListeners();
+    // unload images?? (possible?) (should be just to remove any references to them...)
+    // remove canvas etc...
+    // need to clean up everything so that callin initialize() again works fine (clean slate)
+    
+}
+
+
+
 
 // players (kun 1 vertex, center bottom (de er limt til court)? De trenger høyde (racket-høyde?) for å regne ut avstand til ball osv...?)
 // ball (usikker på om skal bruke sprite eller faktisk 3d-entity for den... 1 vertex for center om sprite? Må jo nesten ha size osv for collision detection, da...?)

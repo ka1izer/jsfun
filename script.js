@@ -66,6 +66,7 @@ class Tennis extends Game {
         // could maybe place this in Game class? Just have path to module?? lets see with next game...?
         import("./games/tennis/tennis.js").then((module) => {
 
+            // show canvas and hide others
             hideForms();
             document.getElementById("mainDiv").style.display = "";
 
@@ -85,14 +86,15 @@ class Tennis extends Game {
                 module.onMessage(peer, data);
             });
     
-            module.initialize();
-
             // SHould send players! also peers, but dont handle peers as players! And we already have teams defined, so send with those!
             // Next step is to properify the tennis game, to handle players properly and stuff. After that we can look at actual gameplay, with ball etc...
+            module.setPlayers(this.players, weAreServer, nick);
             // send peers...
             for (const peer of peers) {
                 module.onNewPeer(peer, weAreServer);
             }
+
+            module.initialize();
         });
     }
 }

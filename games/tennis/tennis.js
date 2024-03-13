@@ -26,9 +26,20 @@ MainLoop.setDraw(interpolationPercentage => {
     // going to 3d:
     const dx = canvasWidth / 2;
     const dy = canvasHeight / 2;
+    const arrDrawOps = [];
     for (const entity of entities) {
-        entity.draw(ctx, dx, dy);
+        entity.draw(ctx, arrDrawOps, dx, dy);
     }
+    arrDrawOps.sort((a,b) => {
+        if (a.z < b.z) {
+            return -1;
+        }
+        else if (a.z > b.z) {
+            return 1;
+        }
+        return 0;
+    });
+    arrDrawOps.forEach(d => d.draw());
 });
 // runs at the end of each frame and is typically used for cleanup tasks such as adjusting the visual quality based on the frame rate.
 MainLoop.setEnd( (fps, panic) => {
@@ -135,7 +146,7 @@ class Entity {
         return new Vertex(vertex.x * this.size, vertex.y * this.size, vertex.z * this.size);
     }
 
-    draw(ctx, dx, dy) {
+    draw(ctx, arrDrawOps, dx, dy) {
         // 3d draw...
 
         for (const face of this.faces) {
@@ -152,49 +163,78 @@ class Entity {
             // project
             //let p = this.project(face[0]);
             let p = this.project(v);
-            ctx.beginPath();
-            // draw first vertex
-            ctx.moveTo(p.x + dx, -p.y + dy);
-            ctx.strokeText("0", p.x+dx, -p.y+dy);
-            //ctx.lineTo(p.x + dx+5, -p.y + dy+5);
-            //console.log("draw", p.x + dx, -p.y + dy)
 
-            // draw other vertices
-            for (let i=1; i < face.length; i++) {
-                //p = this.project(face[i]);
+            arrDrawOps.push({z:p.z, draw: () => {
 
-                v = this.toSize(face[i]);
-                v = this.moveToWorldCoordinate(v);
+                ctx.beginPath();
+                // draw first vertex
+                ctx.moveTo(p.x + dx, -p.y + dy);
+                ctx.strokeText("0", p.x+dx, -p.y+dy);
+                //ctx.lineTo(p.x + dx+5, -p.y + dy+5);
+                //console.log("draw", p.x + dx, -p.y + dy)
 
-                v = camera.toView(v);
-                p = this.project(v);
-                ctx.lineTo(p.x + dx, -p.y + dy);
-                ctx.strokeText(""+i, p.x+dx, -p.y+dy);
-                //console.log("draw2", p.x + dx, -p.y + dy)
-            }
+                // draw other vertices
+                for (let i=1; i < face.length; i++) {
+                    //p = this.project(face[i]);
 
-            // close path (and draw face, if we want...)
-            ctx.closePath();
-            ctx.stroke();
-            ctx.fill(); // may want to turn this off, or set transparent fill color or something...
+                    v = this.toSize(face[i]);
+                    v = this.moveToWorldCoordinate(v);
+
+                    v = camera.toView(v);
+                    p = this.project(v);
+                    ctx.lineTo(p.x + dx, -p.y + dy);
+                    ctx.strokeText(""+i, p.x+dx, -p.y+dy);
+                    //console.log("draw2", p.x + dx, -p.y + dy)
+                }
+
+                // close path (and draw face, if we want...)
+                ctx.closePath();
+                ctx.stroke();
+                ctx.fill(); // may want to turn this off, or set transparent fill color or something...
+            } } );
         }
     }
 }
 class Sprite extends Entity { // sprites: players, possibly ball,...? Rackets?
     // bounding rect? 
     // (player/racket will want to have position at their "bottom", but ball in it's center... compared to height/width/etc + bounding rect)
-    // images
-    constructor(position, width, height) {
+    images = {
+        idle: {
+            img: null, maxSteps: 0, step: 0,
+        },
+    };
+    imagePromises = [];
+    width;
+    height;
+    scale = 1;
+    constructor(position, width, height, scale) {
         super(position);
         this.width = width;
         this.height = height;
+        this.scale = scale;
+    }
+
+    loadImages(url) {
+        const img = new Image();
+        img.src = url;
+        const promise = new Promise(resolve => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+        });
+
+        this.images.idle.img = img;
+        this.images.idle.maxSteps = 0;
+        this.images.idle.step = 0;
+        
+        this.imagePromises.push(promise);
+        return promise;
     }
 
     getImages() {
-        return null;
+        return this.images.idle;
     }
 
-    draw(ctx, dx, dy) {
+    draw(ctx, arrDrawOps, dx, dy) {
         // sprite draw... (need camera etc, too?)
         // size it...
         //let v = this.toSize(face[0]);
@@ -212,15 +252,20 @@ class Sprite extends Entity { // sprites: players, possibly ball,...? Rackets?
         let p = this.project(v);
 
         //console.log("player coords", p.x+dx, p.y+dy)
+        arrDrawOps.push({z:p.z, draw: () => {
 
-        //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
-        // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
-        this.drawImage(ctx, dx, dy, p);
+            //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
+            // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
+            this.drawImage(ctx, dx, dy, p);
+        }});
     }
 
     drawImage(ctx, dx, dy, p) {
         const img = this.getImages();
-        ctx.drawImage(img.img, 0+(32*img.step), 0, 32, 32, p.x+dx - p.z*192/2, -p.y+dy, p.z * 192, -p.z * 192);
+        //ctx.drawImage(img.img, 0+(32*img.step), 0, 32, 32, p.x+dx - p.z*192/2, -p.y+dy, p.z * 192, -p.z * 192);
+        const scaleFactorX = this.width*this.scale;
+        const scaleFactorY = this.height*this.scale;
+        ctx.drawImage(img.img, 0+(this.width*img.step), 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy, p.z * scaleFactorX, -p.z * scaleFactorY);
         ctx.strokeText("0", p.x+dx, -p.y+dy);
         if (img.maxSteps == img.step) {
             img.step = 0;
@@ -233,14 +278,9 @@ class Sprite extends Entity { // sprites: players, possibly ball,...? Rackets?
 class Player extends Sprite {
     peer;
     playPosition = []; // [0, 0] is team1, first player, [0,1] is same team, second player. [1,0] is second team first player, etc...
-    images = {
-        idle: {
-            img: null, maxSteps: 0, step: 0,
-        },
-    };
-    imagePromises = [];
+    
     constructor(position, peer) {
-        super(position);
+        super(position, 32, 32, 6);
         this.peer = peer;
     }
 
@@ -273,7 +313,7 @@ class Ball extends Sprite {
         },
     }
     constructor(position) {
-        super(position);
+        super(position, 32, 32, 3);
     }
 
     loadImages() {
@@ -299,7 +339,10 @@ class Ball extends Sprite {
         const img = this.getImages();
         //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
         // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
-        ctx.drawImage(img.img, 0+(32*img.step), 0, 32, 32, p.x+dx - p.z*96/2, -p.y+dy + p.z*96/2, p.z*96, -p.z*96);
+        //ctx.drawImage(img.img, 0+(32*img.step), 0, 32, 32, p.x+dx - p.z*96/2, -p.y+dy + p.z*96/2, p.z*96, -p.z*96);
+        const scaleFactorX = this.width*this.scale;
+        const scaleFactorY = this.height*this.scale;
+        ctx.drawImage(img.img, 0+(this.width*img.step), 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy + p.z*scaleFactorY/2, p.z*scaleFactorX, -p.z*scaleFactorY);
         //ctx.strokeText("0", p.x+dx, -p.y+dy);
         if (img.maxSteps == img.step) {
             img.step = 0;
@@ -369,6 +412,22 @@ class Ball extends Sprite {
             // shoot with - y
             this.velocity.y = -this.velocity.y;
         }
+    }
+}
+class Net extends Sprite {
+    constructor(position) {
+        super(position, 324, 29, 9);
+    }
+
+    drawImage(ctx, dx, dy, p) {
+        const img = this.getImages();
+        //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
+        // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
+        // Need it's own function to hack it in proper place...
+        const scaleFactorX = this.width*this.scale;
+        const scaleFactorY = this.height*this.scale;
+        ctx.drawImage(img.img, 0, 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy -25 + p.z*scaleFactorY/2, p.z*scaleFactorX, -p.z*scaleFactorY);
+        
     }
 }
 // court (for å justere plassering i forhold til bakgrunn)
@@ -459,7 +518,7 @@ const keys = {
 }
 
 let entities = [];
-let camera = null;
+let camera = new Camera(new Vertex(0,0,0), new Vertex(0,0,0));
 
 let playerType = 1;
 let nick = null;
@@ -629,6 +688,10 @@ function createEntities() {
     //ball = new Ball(new Vertex(0,0,200)); // just for fun, for now...
     promises.push(ball.loadImages() );
     entities.push(ball);
+
+    const net = new Net(new Vertex(40,0,0));
+    promises.push(net.loadImages("./games/tennis/net2.png") );
+    entities.push(net);
 
     Promise.all(promises).then(allImagesLoaded); // allImagesLoaded is called when all images are done loading
 

@@ -282,6 +282,7 @@ class Player extends Sprite {
     constructor(position, peer) {
         super(position, 32, 32, 6);
         this.peer = peer;
+        notDone!; // Need to implement racket and states (about to serve, serving, hit ball, ...) Also, need collision detection between racket and ball (and between 2 players on same team??)
     }
 
     loadImages(url) {

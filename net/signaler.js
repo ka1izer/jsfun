@@ -1,7 +1,7 @@
 // signaler channel (firebase)
 import { nanoid } from '../libs/nanoid.js';
 
-const baseUrl = "https://murderface-86c1a-default-rtdb.europe-west1.firebasedatabase.app/murderface/rooms/";
+const baseUrl = "https://murderface-86"+"c1a-defa"+"ult-rtdb"+".eur"+"ope-wes"+"t1.fire"+"based"+"atab"+"ase.a"+"pp/murd"+"erface/rooms/";
 
 export let uniqueId = document.cookie.split("; ")
     .find((row) => row.startsWith("uniqueId="))

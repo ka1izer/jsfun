@@ -8,7 +8,6 @@ MainLoop.setBegin( (timestamp, frameDelta) => {
 MainLoop.setUpdate(delta => {
     movePlayer(delta);
     ball.update(delta);
-    
 });
 // should update the screen, usually by changing the DOM or painting a canvas.
 MainLoop.setDraw(interpolationPercentage => {
@@ -275,10 +274,17 @@ class Sprite extends Entity { // sprites: players, possibly ball,...? Rackets?
         }
     }
 }
+const PlayerState = {
+    AboutToServe: 0, Serving: 1, HitBall: 2, MissedBall: 3, Idle: 4
+};
+const GameState = {
+    AboutToServe: 0, BallInPlay: 1, GameOver: 2
+};
+let gameState = GameState.AboutToServe;
 class Player extends Sprite {
     peer;
     playPosition = []; // [0, 0] is team1, first player, [0,1] is same team, second player. [1,0] is second team first player, etc...
-    
+    state = PlayerState.Idle;
     constructor(position, peer) {
         super(position, 32, 32, 6);
         this.peer = peer;
@@ -298,6 +304,8 @@ class Player extends Sprite {
         this.images.idle.step = 0;
 
         this.imagePromises.push(promise);
+
+        notDone!; // Load racket image? just need one image, so should load it outside or static or something!
         return promise;
     }
 
@@ -337,21 +345,24 @@ class Ball extends Sprite {
     }
 
     drawImage(ctx, dx, dy, p) {
-        const img = this.getImages();
-        //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
-        // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
-        //ctx.drawImage(img.img, 0+(32*img.step), 0, 32, 32, p.x+dx - p.z*96/2, -p.y+dy + p.z*96/2, p.z*96, -p.z*96);
-        const scaleFactorX = this.width*this.scale;
-        const scaleFactorY = this.height*this.scale;
-        ctx.drawImage(img.img, 0+(this.width*img.step), 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy + p.z*scaleFactorY/2, p.z*scaleFactorX, -p.z*scaleFactorY);
-        //ctx.strokeText("0", p.x+dx, -p.y+dy);
-        if (img.maxSteps == img.step) {
-            img.step = 0;
+        // no need to draw ball unless it is in play...
+        if (gameState == GameState.BallInPlay) {
+            const img = this.getImages();
+            //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
+            // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
+            //ctx.drawImage(img.img, 0+(32*img.step), 0, 32, 32, p.x+dx - p.z*96/2, -p.y+dy + p.z*96/2, p.z*96, -p.z*96);
+            const scaleFactorX = this.width*this.scale;
+            const scaleFactorY = this.height*this.scale;
+            ctx.drawImage(img.img, 0+(this.width*img.step), 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy + p.z*scaleFactorY/2, p.z*scaleFactorX, -p.z*scaleFactorY);
+            //ctx.strokeText("0", p.x+dx, -p.y+dy);
+            if (img.maxSteps == img.step) {
+                img.step = 0;
+            }
+            else {
+                //img.step++;
+            }
+            //console.log("ball", ball.position)
         }
-        else {
-            //img.step++;
-        }
-        //console.log("ball", ball.position)
     }
 
     update(delta) {
@@ -521,7 +532,6 @@ const keys = {
 let entities = [];
 let camera = new Camera(new Vertex(0,0,0), new Vertex(0,0,0));
 
-let playerType = 1;
 let nick = null;
 export function setPlayers(allPlayers, areWeServer, ourNick) {
     weAreServer = areWeServer;

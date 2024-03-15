@@ -46,6 +46,7 @@ class Tennis extends Game {
     }
 
     add(peer) {
+        console.log("add", peer)
         // want to add first to first team, second to second team, third to first team and fourth to second team...
         if (this.players[0].length == 0) {
             this.players[0].push(peer);
@@ -88,6 +89,7 @@ class Tennis extends Game {
     
             // SHould send players! also peers, but dont handle peers as players! And we already have teams defined, so send with those!
             // Next step is to properify the tennis game, to handle players properly and stuff. After that we can look at actual gameplay, with ball etc...
+            console.log("players, peers", this.players, peers);
             module.setPlayers(this.players, weAreServer, nick);
             // send peers...
             for (const peer of peers) {

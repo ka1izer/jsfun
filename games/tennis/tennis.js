@@ -6,6 +6,18 @@ MainLoop.setBegin( (timestamp, frameDelta) => {
 });
 // runs zero or more times per frame depending on the frame rate. It is used to compute anything affected by time - typically physics and AI movements.
 MainLoop.setUpdate(delta => {
+    if (keys.hit > 0) {
+        if (ball.state == BallState.AboutToServe) {
+            keys.hit = 0;
+        }
+        else {
+            keys.hit -= delta * 0.1;
+        }
+        player.hit();
+    }
+    else {
+        keys.hit = 0;
+    }
     movePlayer(delta);
     ball.update(delta);
 });
@@ -55,6 +67,11 @@ class Vertex {
         this.x = parseFloat(x);
         this.y = parseFloat(y);
         this.z = parseFloat(z);
+    }
+    set(x, y, z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
     }
 }
 class Vertex2D {
@@ -108,14 +125,79 @@ class Camera {
     }
 }
 
+class BoundingRectangle {
+    offset = new Vertex(0,0,0);
+    vertices = [this.offset, this.offset, this.offset, this.offset, this.offset, this.offset, this.offset, this.offset]; // [(-x, -y, -z), (x, -y, -z), (x, y, -z), (-x, y, -z), (-x, -y, z), (x, -y, z), (x, y, z), (-x, y, z)]
+    constructor(offset, vertices, width, height) {
+        if (offset) {
+            this.offset = offset;
+        }
+        if (vertices) {
+            this.vertices = vertices;
+        }
+        else if (width && height) {
+            const bulk = width/2;
+            const zHeight = height/2;
+            this.vertices = [
+                new Vertex(-bulk, -bulk, -zHeight),
+                new Vertex(bulk, -bulk, -zHeight),
+                new Vertex(bulk, bulk, -zHeight),
+                new Vertex(-bulk, bulk, -zHeight),
+                new Vertex(-bulk, -bulk, zHeight),
+                new Vertex(bulk, -bulk, zHeight),
+                new Vertex(bulk, bulk, zHeight),
+                new Vertex(-bulk, bulk, zHeight)
+            ]
+        }
+    }
+
+    collidesWith(thisCenter, otherCenter, otherBound) {
+        // assume no rotation...
+        //debugger;
+        if (thisCenter.x + this.offset.x + this.vertices[0].x > otherCenter.x + otherBound.offset.x + otherBound.vertices[1].x) {
+            // lower left corner of this bottom is to right of lower right corner of other, cannot collide
+            return false;
+        }
+        if (thisCenter.y + this.offset.y + this.vertices[0].y > otherCenter.y + otherBound.offset.y + otherBound.vertices[3].y) {
+            // lower left corner of this bottom is above (y-axis) upper right corner of other bottom, cannot collide
+            return false;
+        }
+        if (thisCenter.z + this.offset.z + this.vertices[0].z > otherCenter.z + otherBound.offset.z + otherBound.vertices[4].z) {
+            // lower left corner of this bottom is above (z-axis) lower left corner of other top, cannot collide
+            return false;
+        }
+
+        if (thisCenter.x + this.offset.x + this.vertices[1].x < otherCenter.x + otherBound.offset.x + otherBound.vertices[0].x) {
+            // lower right corner of this bottom is to left of lower left corner of other, cannot collide
+            return false;
+        }
+        if (thisCenter.y + this.offset.y + this.vertices[3].y < otherCenter.y + otherBound.offset.y + otherBound.vertices[0].y) {
+            // upper right corner of this bottom is below (y-axis) lower left corner of other bottom, cannot collide
+            return false;
+        }
+        if (thisCenter.z + this.offset.z + this.vertices[4].z < otherCenter.z + otherBound.offset.z + otherBound.vertices[0].z) {
+            // lower left corner of this top is below (z-axis) lower left corner of other bottom, cannot collide
+            return false;
+        }
+        return true;
+    }
+}
 // entities:
 class Entity {
-    position;
+    position = new Vertex(0,0,0);
     size = 1;
     vertices = [];
     faces = [];
+    boundingRect = new BoundingRectangle(); // initialized just for IDE help
     constructor(position) {
         this.position = position;
+    }
+
+    collidesWith(otherEntity) {
+        // return true if this entity collides with otherEntity
+        // need position and size? maybe width+height? players have their position/base on the bottom... Ball in center... and cuboid or sphere? ball should be sphere, but cube would prolly work more than good enough
+        // maybe rectangle with offset? 8 vertices + offset?
+        return this.boundingRect.collidesWith(this.position, otherEntity.position, otherEntity.boundingRect);
     }
 
     project(vertex) {
@@ -280,6 +362,9 @@ const PlayerState = {
 const GameState = {
     AboutToServe: 0, BallInPlay: 1, GameOver: 2
 };
+const BallState = {
+    AboutToServe: 0, InPlay: 1, OutOfBounds: 2, AtRest: 3
+}
 let gameState = GameState.AboutToServe;
 class Player extends Sprite {
     peer;
@@ -288,7 +373,14 @@ class Player extends Sprite {
     constructor(position, peer) {
         super(position, 32, 32, 6);
         this.peer = peer;
-        notDone!; // Need to implement racket and states (about to serve, serving, hit ball, ...) Also, need collision detection between racket and ball (and between 2 players on same team??)
+        const playerWidth = 50;
+        const playerHeight = 130;
+        this.boundingRect = new BoundingRectangle(new Vertex(0, 0, playerHeight/2), null, playerWidth, playerHeight);
+    }
+
+    changeState(newState) {
+        this.state = newState;
+        // if newState == AboutToServe, move ball-position to player and lock it there (x = player.x - 5, y = player.y, z = 10 ish...) // Should have ball state too
     }
 
     loadImages(url) {
@@ -305,16 +397,39 @@ class Player extends Sprite {
 
         this.imagePromises.push(promise);
 
-        notDone!; // Load racket image? just need one image, so should load it outside or static or something!
+        //notDone!; // Load racket image? just need one image, so should load it outside or static or something! Maybe skip racket visuals to begin with. Not realllly needed...
         return promise;
     }
 
     getImages() {
         return this.images.idle;
     }
+
+    hit() {
+        if (this.state == PlayerState.AboutToServe) {
+            // throw ball in the air...
+            ball.state = BallState.InPlay;
+            this.state = PlayerState.Idle;
+            ball.serve();
+        }
+        else if (this.state == PlayerState.Idle) {
+
+            // try to hit ball, must check that it is close enough... Add target+spin etc later...
+            // Will need collision detection anyway, so use general code...
+            if (this.collidesWith(ball)) {
+                console.log("HIT!z", ball.position.z)
+                ball.hit();
+            }
+            else {
+                console.log("MISS", ball.position, this.position);
+            }
+        }
+    }
 }
 class Ball extends Sprite {
     velocity = new Vertex(0,0,0); // use vertex as vectors...
+    state = BallState.AboutToServe;
+    player = new Player();
     images = {
         // only animation should be spinning(?) and deformation on bounce.. but just use the bouncing orange for everything for now... :-)
         idle: {
@@ -323,6 +438,24 @@ class Ball extends Sprite {
     }
     constructor(position) {
         super(position, 32, 32, 3);
+        this.player = null;
+        const ballWidth = 80;
+        const ballHeight = ballWidth;
+        this.boundingRect = new BoundingRectangle(new Vertex(0, 0, 0), null, ballWidth, ballHeight);
+    }
+
+    changeState(newState, lockOnPlayer) {
+        this.state = newState;
+        // TEMP
+        if (newState == BallState.AtRest || newState == BallState.OutOfBounds) {
+            console.log("ball at rest!")
+            this.player.changeState(PlayerState.AboutToServe);
+            this.changeState(BallState.AboutToServe, this.player);
+            return;
+        }
+        this.player = lockOnPlayer;
+        // if newState == AboutToServe, lock on player in correct position...
+        
     }
 
     loadImages() {
@@ -346,64 +479,83 @@ class Ball extends Sprite {
 
     drawImage(ctx, dx, dy, p) {
         // no need to draw ball unless it is in play...
-        if (gameState == GameState.BallInPlay) {
-            const img = this.getImages();
-            //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
-            // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
-            //ctx.drawImage(img.img, 0+(32*img.step), 0, 32, 32, p.x+dx - p.z*96/2, -p.y+dy + p.z*96/2, p.z*96, -p.z*96);
-            const scaleFactorX = this.width*this.scale;
-            const scaleFactorY = this.height*this.scale;
-            ctx.drawImage(img.img, 0+(this.width*img.step), 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy + p.z*scaleFactorY/2, p.z*scaleFactorX, -p.z*scaleFactorY);
-            //ctx.strokeText("0", p.x+dx, -p.y+dy);
-            if (img.maxSteps == img.step) {
-                img.step = 0;
-            }
-            else {
-                //img.step++;
-            }
-            //console.log("ball", ball.position)
+        const img = this.getImages();
+        //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
+        // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
+        //ctx.drawImage(img.img, 0+(32*img.step), 0, 32, 32, p.x+dx - p.z*96/2, -p.y+dy + p.z*96/2, p.z*96, -p.z*96);
+        const scaleFactorX = this.width*this.scale;
+        const scaleFactorY = this.height*this.scale;
+        ctx.drawImage(img.img, 0+(this.width*img.step), 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy + p.z*scaleFactorY/2, p.z*scaleFactorX, -p.z*scaleFactorY);
+        //ctx.strokeText("0", p.x+dx, -p.y+dy);
+        if (img.maxSteps == img.step) {
+            img.step = 0;
         }
+        else {
+            //img.step++;
+        }
+        //console.log("ball", ball.position)
     }
 
     update(delta) {
-        // should have velocity (in x, y and z direction)
-        // should fall, if in the air (not still on ground, or held by player or something...)
-        //  so, should accelerate downwards in that case (-z) towards 0, and then maybe bounce, depending on speed down...
-        if (this.position.z > 0) {
-            this.velocity.z += .18 * delta;
-        }
+        if (ball.state == BallState.AboutToServe && player.state == PlayerState.AboutToServe) {
+            // ball should be "locked" on to position of this.player 
+            this.velocity.set(0,0,0);
 
-        
-        this.position.x += this.velocity.x;
-        this.position.y += this.velocity.y;
-        this.position.z -= this.velocity.z;
-        if (this.position.z <= 0) {
-            // bounce?
-            if(this.velocity.z > 1) {
-                this.velocity.z = -this.velocity.z + 5; // bounce, with a bit loss in velocity
+            const playerPos = this.player.position;
+            this.position.set(playerPos.x - 40, playerPos.y+10, 10); // prolly needs refining, but...
+            //console.log("ballPos", this.position)
+        }
+        else if (ball.state == BallState.InPlay) {
+
+            // should have velocity (in x, y and z direction)
+            // should fall, if in the air (not still on ground, or held by player or something...)
+            //  so, should accelerate downwards in that case (-z) towards 0, and then maybe bounce, depending on speed down...
+            if (this.position.z > 0) {
+                this.velocity.z += .05 * delta;
             }
-            else {
-                this.velocity.z = 0;
+
+            const factor = delta * .01;
+            
+            this.position.x += this.velocity.x * factor;
+            this.position.y += this.velocity.y * factor;
+            //this.position.z -= this.velocity.z * factor;
+            if (this.position.z <= 0) {
+                // bounce?
+                if(this.velocity.z > 10) {
+                    this.velocity.z = -this.velocity.z + 10; // bounce, with a bit loss in velocity
+                }
+                else {
+                    this.velocity.z = 0;
+                }
+                if (this.velocity.x > 1) {
+                    this.velocity.x -= 3;
+                }
+                else if (this.velocity.x < -1) {
+                    this.velocity.x += 3;
+                }
+                else {
+                    this.velocity.x = 0;
+                }
+                if (this.velocity.y > 1) {
+                    this.velocity.y -= 3;
+                }
+                else if (this.velocity.y < -1) {
+                    this.velocity.y += 3;
+                }
+                else {
+                    this.velocity.y = 0;
+                }
+                this.position.z = 0;
             }
-            if (this.velocity.x > 1) {
-                this.velocity.x -= 3;
+            if (this.position.z == 0 && this.velocity.z == 0) {
+                ball.changeState(BallState.AtRest);
             }
-            else if (this.velocity.x < -1) {
-                this.velocity.x += 3;
+            if (this.position.y > 450) {
+                ball.changeState(BallState.OutOfBounds);
             }
-            else {
-                this.velocity.x = 0;
-            }
-            if (this.velocity.y > 1) {
-                this.velocity.y -= 3;
-            }
-            else if (this.velocity.y < -1) {
-                this.velocity.y += 3;
-            }
-            else {
-                this.velocity.y = 0;
-            }
-            this.position.z = 0;
+        }
+        else if (ball.state == BallState.OutOfBounds) {
+            // NOTDONE!
         }
     }
 
@@ -425,10 +577,25 @@ class Ball extends Sprite {
             this.velocity.y = -this.velocity.y;
         }
     }
+
+    serve() {
+        // throw ball in the air...
+        this.velocity.z = -Math.random() * 50 - 10;
+    }
+
+    hit() {
+        this.velocity.z = -Math.random() * 50 - 10;
+        this.velocity.y = Math.random() * 20 + 20; 
+        //notDone! // if we are not server, need to tell server that we hit the ball!! and tell server velocities and stuff...
+    }
 }
 class Net extends Sprite {
     constructor(position) {
         super(position, 324, 29, 9);
+    }
+
+    loadImages() {
+        return super.loadImages("./games/tennis/net2.png");
     }
 
     drawImage(ctx, dx, dy, p) {
@@ -526,7 +693,8 @@ const keys = {
     left: false,
     right: false,
     up: false,
-    down: false
+    down: false,
+    hit: 0 // for now, unsure...
 }
 
 let entities = [];
@@ -648,8 +816,26 @@ export function initialize() {
 
     createEntities();
 
+    initializeState();
+
     // start gameloop..?MainLoop.start() ? Or in allImagesLoaded() maybe???
     console.log("initialized tennis!")
+}
+
+function initializeState() {
+    // setup starting state of game, starting state of players...
+
+    gameState = GameState.AboutToServe;
+
+    for (const plr of players) {
+        //plr.state = PlayerState.Idle;
+        plr.changeState(PlayerState.Idle);
+    }
+    // first player in players should serve first...
+    players[0].changeState(PlayerState.AboutToServe);
+    ball.changeState(BallState.AboutToServe, players[0]);
+    console.log("player Serving:", players[0].peer.nick)
+    console.log("players", players)
 }
 
 function createEntities() {
@@ -701,7 +887,7 @@ function createEntities() {
     entities.push(ball);
 
     const net = new Net(new Vertex(40,0,0));
-    promises.push(net.loadImages("./games/tennis/net2.png") );
+    promises.push(net.loadImages() );
     entities.push(net);
 
     Promise.all(promises).then(allImagesLoaded); // allImagesLoaded is called when all images are done loading
@@ -724,6 +910,8 @@ function keyDown(e) {
     }
     else if (e.code === "Space" || e.code === "Enter") {
         // not sure yet...   
+        //keys.hit = true;
+        
     }
 }
 
@@ -738,9 +926,12 @@ function keyUp(e) {
         keys.right = false;
     }
     else if (e.code === "Space" || e.code === "Enter") {
-        const plr = player; // testing with close player
+        /*const plr = player; // testing with close player
         ball.reset(plr);
-        ball.testShoot(plr);
+        ball.testShoot(plr);*/
+        //keys.hit = false;
+        keys.hit = 10;
+        //player.hit();
     }
 }
 
@@ -874,7 +1065,8 @@ function getNewPositions(peer, data) {
                 players[i].position.z = data.players[i].pos.z;
             }
         }
-        if (player.playPosition[0] == 0) {
+        ball.state = data.ball.state;
+        if (data.serverPosition[0] == player.playPosition[0]) {
             ball.position.x = data.ball.pos.x;
             ball.position.y = data.ball.pos.y;
             ball.position.z = data.ball.pos.z;
@@ -906,7 +1098,7 @@ function getNewPositions(peer, data) {
 function sendNewPosition() {
     if (weAreServer) {
         // send current state
-        const state = {serverPosition: player.playPosition, players: [], ball: {pos: ball.position}};
+        const state = {serverPosition: player.playPosition, players: [], ball: {state: ball.state, pos: ball.position}};
         for (const plr of players) {
             state.players.push({pos: plr.position/*, state: xxx*/}); // assume fixed players-arrays, so all have same player in [0], etc..
         }
@@ -1009,6 +1201,7 @@ export function uninitialize() {
     // remove canvas etc...
     // need to clean up everything so that callin initialize() again works fine (clean slate)
     
+    //resetState();
 }
 
 

@@ -755,7 +755,7 @@ class Ball extends Sprite {
         }
         ball.velocity.z = velocityZ;
         // how hard do we hit? (divide distance by amount of "frames" we want ball to take from source to target... trial and error)
-        
+        //NOTDONE! Not working right now...
         
 
         console.log("ball.vel", ball.velocity)

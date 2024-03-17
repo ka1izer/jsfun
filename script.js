@@ -38,6 +38,7 @@ class Game {
 let selectedGame = null;
 let gameStarted = false;
 
+
 class Tennis extends Game {
     constructor() {
         super("tennis", "Tennis", 2, 2);

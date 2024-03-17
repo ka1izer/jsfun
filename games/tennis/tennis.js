@@ -104,9 +104,9 @@ class Camera {
 
     toView(vertex) {
         // first, subtract camera position
-        let x = vertex.x - this.position.x;
-        let y = vertex.y - this.position.y;
-        let z = this.position.z - vertex.z;
+        const x = vertex.x - this.position.x;
+        const y = vertex.y - this.position.y;
+        const z = this.position.z - vertex.z;
 
         // then rotate...
         const tx = this.horizAngle == 0? x : x * Math.cos(this.horizAngle) + z * Math.sin(this.horizAngle); // if horizAngle == 0, this is unneded, since it just gives x.
@@ -120,8 +120,35 @@ class Camera {
         const adjustedZ = this.position.z - tz; // Reverse the Z-coordinate back
         //const adjustedZ = tz + this.position.z;
 
-        //return new Vertex(tx, ty, tz);
+        // URK, bug here, forgot to use adjustedX/Y/Z, so camera pos is off... urk
+
         return new Vertex(tx, ty, tz);
+    }
+
+    // reverse operation of toView
+    fromView(vertex) {
+
+        // First, adjust for the camera position
+        const x = vertex.x - this.position.x;
+        const y = vertex.y - this.position.y;
+        //const z = vertex.z - this.position.z;
+        const z = this.position.z - vertex.z;
+
+        // Reverse the rotation...
+        const tx = this.horizAngle === 0 ? x : x * Math.cos(-this.horizAngle) + z * Math.sin(-this.horizAngle);
+        const tz = this.horizAngle === 0 ? z : z * Math.cos(-this.horizAngle) - x * Math.sin(-this.horizAngle);
+        const ty = this.vertAngle === 0 ? y : y * Math.cos(-this.vertAngle) + tz * Math.sin(-this.vertAngle);
+        const adjustedZ = this.vertAngle === 0 ? tz : tz * Math.cos(-this.vertAngle) - y * Math.sin(-this.vertAngle);
+
+        // Adjust back to the world position
+        const worldX = tx + this.position.x;
+        const worldY = ty + this.position.y;
+        const worldZ = this.position.z - adjustedZ; // Reverse the Z-coordinate back
+
+        // URK, bug in toView(), forgot to use adjustedX/Y/Z, so camera pos is off... so skip here too?
+
+        return new Vertex(worldX, worldY, worldZ);
+        //return new Vertex(tx, ty, adjustedZ);
     }
 }
 
@@ -216,6 +243,28 @@ class Entity {
         //console.log("project", vertex.x, vertex.y, r, r*vertex.x, r*vertex.y)
 
         return new Vertex(r * vertex.x, r * vertex.y, r);
+    }
+
+    // Reverse projection, 2D to 3D
+    unProject(vertex) {
+        // x = vx * (d /vz)
+        // y = vy * (d /vz)
+        // z = d/vz
+
+        // vx = x / (d/vz)
+        // vy = y / (d/vz)
+        // vz = d/z
+
+
+        /*const d = canvasWidth * 0.55; // silly fov here, but..... (around 600...)
+        const r = d / vertex.z;
+
+        return new Vertex(vertex.x/r, vertex.y/r, r);*/
+
+        const d = canvasWidth * 0.55;
+        const r = vertex.z;
+    
+        return new Vertex(vertex.x / r, vertex.y / r, d / r);
     }
 
     moveToWorldCoordinate(vertex) {
@@ -324,13 +373,16 @@ class Sprite extends Entity { // sprites: players, possibly ball,...? Rackets?
         //console.log("world position", this.position)
         let v = this.moveToWorldCoordinate(this.position);
         //console.log("afterwolrd", v)
+        if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl worlv", v)
         
         // så, gjør om fra world til camera...
         v = camera.toView(v);
+        if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl camv", v)
 
         // project
         //let p = this.project(face[0]);
         let p = this.project(v);
+        if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl projectv", p)
 
         //console.log("player coords", p.x+dx, p.y+dy)
         arrDrawOps.push({z:p.z, draw: () => {
@@ -418,6 +470,7 @@ class Player extends Sprite {
             // Will need collision detection anyway, so use general code...
             if (this.collidesWith(ball)) {
                 console.log("HIT!z", ball.position.z)
+                keys.hit = 0;
                 ball.hit();
             }
             else {
@@ -430,6 +483,7 @@ class Ball extends Sprite {
     velocity = new Vertex(0,0,0); // use vertex as vectors...
     state = BallState.AboutToServe;
     player = new Player();
+    hitByUs = false;
     images = {
         // only animation should be spinning(?) and deformation on bounce.. but just use the bouncing orange for everything for now... :-)
         idle: {
@@ -518,7 +572,7 @@ class Ball extends Sprite {
             
             this.position.x += this.velocity.x * factor;
             this.position.y += this.velocity.y * factor;
-            //this.position.z -= this.velocity.z * factor;
+            this.position.z -= this.velocity.z * factor;
             if (this.position.z <= 0) {
                 // bounce?
                 if(this.velocity.z > 10) {
@@ -550,7 +604,7 @@ class Ball extends Sprite {
             if (this.position.z == 0 && this.velocity.z == 0) {
                 ball.changeState(BallState.AtRest);
             }
-            if (this.position.y > 450) {
+            if (this.position.y > 580 || this.position.y < -580) {
                 ball.changeState(BallState.OutOfBounds);
             }
         }
@@ -581,13 +635,112 @@ class Ball extends Sprite {
     serve() {
         // throw ball in the air...
         this.velocity.z = -Math.random() * 50 - 10;
+        // should also add some random x and y axis velocity here (small ones)...
     }
 
     hit() {
-        this.velocity.z = -Math.random() * 50 - 10;
+        /*this.velocity.z = -Math.random() * 50 - 10;
         this.velocity.y = Math.random() * 20 + 20; 
-        //notDone! // if we are not server, need to tell server that we hit the ball!! and tell server velocities and stuff...
+        */
+
+        // need to do a reverse projection to world coordinates!
+        /*
+            this is the projection we need to reverse
+            // plasser mesh der den skal være i verden (translate ut fra position)
+            v = this.moveToWorldCoordinate(v);
+            
+            // så, gjør om fra world til camera...
+            v = camera.toView(v);
+
+            // project
+            //let p = this.project(face[0]);
+            let p = this.project(v);*/
+        //camera = new Camera(new Vertex(0, -1500, 1000), new Vertex(0, 800, 0));
+        // how to calculate initial z value? Should be distance from camera to target?
+        /*const a = Math.abs(camera.position.y - camera.target.y);
+        const b = Math.abs(camera.position.z - camera.target.z);
+        const c = Math.sqrt(a*a + b*b);
+        console.log("dist: ", c)
+        let target = new Vertex(keys.clickedX, keys.clickedY, 0.3473539549328028);
+
+        const dx = canvasWidth / 2;
+        const dy = canvasHeight / 2;
+        target.x = target.x - dx;
+        target.y = -target.y + dy;
+        console.log("target", target)
+
+        let v = this.unProject(target);
+        console.log("v camera",v);
+
+        v = camera.fromView(v);
+        console.log("v world",v);*/
+
+        // fake it...
+        let target = new Vertex(keys.clickedX, keys.clickedY, 0);
+
+        const dx = canvasWidth / 2;
+        const dy = canvasHeight / 2;
+        target.x = target.x - dx;
+        target.y = -target.y + dy + canvasHeight/10;
+
+        // 0,0 should now be bottom of horizontal center of net
+        target.y = target.y / (canvasHeight/100);
+        // (0,11ish) should now be middle of court, far top.
+        target.x = target.x / (canvasWidth/100);
+        // (-23ish, 11ish) should now be upper left corner, and (24ish, 11ish) should be upper right corner
+        // (-32.5ish, 0.6ish) should now be lower left corner, and (33ish, 0.6ish) should be lower right corner
+        
+
+        // "guess" correct target from here (find world coordinates that correspond at z=0, and go from there...)
+        // court is approx -580 to 580 x, 10 to 450 y(?)
+        
+        // VERY hacky solution, just have several horizontal "bands", where we calculate x,y with differnt factors for each band...
+        let xFactor = 1;
+        let yFactor = 1;
+        if (target.y < 0.6) {
+            target.y = 0.6;
+        }
+        //console.log("targetr", target);
+        if (target.y >= 0.6 && target.y < 2) {
+            xFactor = 550/33;
+            yFactor = 10/0.6;
+        }
+        else if (target.y >= 2 && target.y < 4) {
+            xFactor = 450/33;
+            yFactor = 450/10.5;
+        }
+        else if (target.y >= 4 && target.y < 6) {
+            xFactor = 550/33;
+            yFactor = 450/10.5;
+        }
+        else if (target.y >= 6 && target.y < 8) {
+            xFactor = 600/33;
+            yFactor = 450/10.5;
+        }
+        else if (target.y >= 8 && target.y <= 11) {
+            xFactor = 650/33;
+            yFactor = 450/10.5;
+        }
+        target.x = target.x * xFactor;
+        target.y = target.y * yFactor;
+        target.z = 0;
+
+        // ignore click below net for now.
+        console.log("target", target)
+
+        // make sure target is within bounds? skip for now
+
+        // try to calculate velocities for ball to hit target...
+        notDone!
+
+        // if we are not server, need to tell server that we hit the ball!! and tell server velocities and stuff...
+        if (!weAreServer) {
+            this.hitByUs = true;
+        }
     }
+
+    
+    
 }
 class Net extends Sprite {
     constructor(position) {
@@ -694,7 +847,9 @@ const keys = {
     right: false,
     up: false,
     down: false,
-    hit: 0 // for now, unsure...
+    hit: 0, // for now, unsure...
+    clickedX: 0,
+    clickedY: 0,
 }
 
 let entities = [];
@@ -809,6 +964,7 @@ export function initialize() {
     
     // setup listeners (keys/mouse/touch++, 
     setupKeyListeners();
+    setupMouseListeners();
     
     // prolly need onresize, too, since that changes size of canvas...
     addEventListener("resize", onResize);
@@ -930,7 +1086,7 @@ function keyUp(e) {
         ball.reset(plr);
         ball.testShoot(plr);*/
         //keys.hit = false;
-        keys.hit = 10;
+        //keys.hit = 10;
         //player.hit();
     }
 }
@@ -943,6 +1099,26 @@ function setupKeyListeners() {
 function removeKeyListeners() {
     removeEventListener("keydown", keyDown);
     removeEventListener("keyup", keyUp);
+}
+
+function setupMouseListeners() {
+    canvas.addEventListener("click", clicked);
+}
+
+function removeMouseListeners() {
+    if (canvas) {
+        canvas.removeEventListener("click", clicked);
+    }
+}
+
+function clicked(event) {
+    //console.log("clicked", event.clientX, event.clientY);
+    // need to do a hit (unless we are in aboutToServe-mode)
+    // if hit-> translate event.clientX/Y to world coords (z = 0), always on other side of net (y > 80 or so?), and prolly inside bounds?
+    // calculate velocities to reach that target... give em to the ball...
+    keys.clickedX = event.clientX;
+    keys.clickedY = event.clientY;
+    keys.hit = 10;
 }
 
 function allImagesLoaded() {
@@ -1091,6 +1267,17 @@ function getNewPositions(peer, data) {
                 plr.position.y = -data.player.pos.y;
                 plr.position.z = data.player.pos.z;
             }
+            if (data.ball?.hit) {
+                if (player.playPosition[0] == plr.playPosition[0]) {
+                    //data.ball.hit
+                    ball.position.set(data.ball.pos.x, data.ball.pos.y, data.ball.pos.z);
+                    ball.velocity.set(data.ball.vel.x, data.ball.vel.y, data.ball.vel.z);
+                }
+                else {
+                    ball.position.set(-data.ball.pos.x, -data.ball.pos.y, data.ball.pos.z);
+                    ball.velocity.set(-data.ball.vel.x, -data.ball.vel.y, data.ball.vel.z);
+                }
+            }
         }
     }
 }
@@ -1109,7 +1296,14 @@ function sendNewPosition() {
     }
     else {
         // just send ourselves (+ ball on hit)
-        peers[0].channel.send(JSON.stringify({player: {/*playPosition: player.playPosition,*/ pos: player.position}/*, ball and stuff (serving/hitting/etc..) */}));
+        const ballData = {};
+        if (ball.hitByUs) {
+            ball.hitByUs = false;
+            ballData.hit = true;
+            ballData.pos = ball.position;
+            ballData.vel = ball.velocity;
+        }
+        peers[0].channel.send(JSON.stringify({player: {/*playPosition: player.playPosition,*/ pos: player.position}, ball: ballData/*, (serving/hitting/etc..) */}));
     }
     /*// change! server sends all positions to everyone, non-server sends their own position to server (need to send ball position from server, and prolly from non-server on ball-hit)
     if (opponent.peer?.channel) {
@@ -1175,7 +1369,7 @@ function onResize(event) {
     canvasWidth = canvas.offsetWidth;
     canvasHeight = canvas.offsetHeight;
 
-    //console.log("dims", canvasWidth, canvasHeight, canvas.width, canvas.height)
+    console.log("dims", canvasWidth, canvasHeight, canvas.width, canvas.height)
   
     // If the screen device has a pixel ratio over 1
     // We render the canvas twice bigger to make it sharper (e.g. Retina iPhone)
@@ -1197,6 +1391,7 @@ export function uninitialize() {
     // remove listeners (keys/mouse/touch++)
     removeEventListener("resize", onResize);
     removeKeyListeners();
+    removeMouseListeners();
     // unload images?? (possible?) (should be just to remove any references to them...)
     // remove canvas etc...
     // need to clean up everything so that callin initialize() again works fine (clean slate)

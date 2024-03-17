@@ -731,7 +731,34 @@ class Ball extends Sprite {
         // make sure target is within bounds? skip for now
 
         // try to calculate velocities for ball to hit target...
-        notDone!
+        // calc distance for x and y
+        const xDist = target.x - ball.position.x;
+        const yDist = target.y - ball.position.y;
+        const netHeight = 80; // guess
+        let velocityZ = -5; //?? guess
+        ball.velocity.x = xDist / 6;
+        ball.velocity.y = yDist / 6;
+        console.log("ball.position.z", ball.position.z)
+        if (ball.position.z < netHeight) {
+             velocityZ = (ball.position.z - netHeight) ; // need to get negative number, since z velocity is subtracted, not added... stupidly... // ? guess
+             // need to slow down x and y if we have more z...
+             const slowDown = Math.abs(velocityZ)/2;
+             const factX = ball.velocity.x / ball.velocity.y;
+             const factY = ball.velocity.y / ball.velocity.x;
+             if (ball.velocity.x < 0) {
+                ball.velocity.x += slowDown * factX;
+             }
+             else {
+                ball.velocity.x -= slowDown * factX;
+             }
+             ball.velocity.y -= slowDown * factY;
+        }
+        ball.velocity.z = velocityZ;
+        // how hard do we hit? (divide distance by amount of "frames" we want ball to take from source to target... trial and error)
+        
+        
+
+        console.log("ball.vel", ball.velocity)
 
         // if we are not server, need to tell server that we hit the ball!! and tell server velocities and stuff...
         if (!weAreServer) {

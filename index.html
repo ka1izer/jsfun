@@ -3,7 +3,7 @@
         <!--<script src="script.js" type="module"></script>-->
         <meta charset="utf-8" />
 	    <meta name="viewport" content="width=device-width,initial-scale=1">
-        <link rel="stylesheet" href="index.css?8" type="text/css">
+        <link rel="stylesheet" href="index.css?9" type="text/css">
     </head>
     <body style="height:100vh">
         <!--Spør om userid (lagre i cookie og etterhvert pwa localstorage), la bruker opprette rom eller joine... redirect til url som har med romid, så reloads ikke ødelegger-->
@@ -38,7 +38,7 @@
         <form id="roomForm" style="display:none" class="form form-top" >
             <label>Room id: <h1 id="roomId" class="roomId"></h1></label>
             <!--<div id="roomIdQR"></div>-->
-            <label>Other players can open site and input room id, or just scan qr-code and join directly</label>
+            <label>Other players can open site and input room id, or just scan qr-code and join directly14</label>
             <img id="roomIdQR" class="qrImage">
             <button id="showQr" style="display: none;">Show QR code</button>
             <!-- Show peers connected -->
@@ -58,7 +58,7 @@
             <!-- qr-scanner to scan qr-code for roomId -->
             <br>
             <div>
-                <label>13 Or scan qr-code to join room</label>
+                <label>Or scan qr-code to join room</label>
                 <button id="scanQR">Scan QR code</button>
                 <div id="qrscanner" style="display: none; line-height: 0;">
                     <video id="scannerVideo" disablepictureinpicture playsinline></video>
@@ -80,7 +80,7 @@
         </div>
         <div id="mainDiv" style="display:none"></div>
         <script type="module">
-            import {changeNick, createRoom, joinRoom, joinRoomByCode, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?13';
+            import {changeNick, createRoom, joinRoom, joinRoomByCode, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?14';
 
             document.getElementById("nickForm").addEventListener('submit', changeNick);
             document.getElementById("createRoom").addEventListener('click', createRoom);

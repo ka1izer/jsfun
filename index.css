@@ -25,6 +25,8 @@
 
 .touchDiv {
     height: 100%;
+    overflow: hidden;
+    visibility: hidden;
 }
 
 .form {

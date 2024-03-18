@@ -1268,7 +1268,6 @@ function removeTouchListeners() {
 }
 
 function touchStart(event) {
-    console.log("eventStart", event)
     if (event.changedTouches.length == 1 || keys.touchIdentifier == null) {
         keys.touchX = event.changedTouches[0].pageX;
         keys.touchY = event.changedTouches[0].pageY;
@@ -1335,7 +1334,6 @@ function touchMove(event) {
 }
 
 function touchEnd(event) {
-    console.log("eventEND", event)
     for (const touch of event.changedTouches) {
         if (keys.touchIdentifier == touch.identifier && touch.force == 0) {
             keys.touchX = keys.touchY = 0;

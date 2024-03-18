@@ -34,6 +34,9 @@ class Game {
     startGame() {
         gameStarted = true;
     }
+    stopGame() {
+        document.body.classList.remove("gaming");
+    }
 }
 let selectedGame = null;
 let gameStarted = false;
@@ -108,6 +111,7 @@ function startGame(gameToPlay) {
         sendStartGame(gameToPlay);
     }
     const game = findGameById(gameToPlay);
+    document.body.classList.add("gaming");
     game.startGame();
 }
 

@@ -5,6 +5,10 @@
     left: -5px;
 }
 
+.gaming {
+    overflow: hidden;
+}
+
 .fullsizeImage {
     /*width: 98%;
     height: 100%;*/

@@ -980,6 +980,10 @@ const keys = {
     hit: 0, // for now, unsure...
     clickedX: 0,
     clickedY: 0,
+    touchX: 0,
+    touchY: 0,
+    movementSpeedX: 1,
+    movementSpeedY: 1,
 }
 
 let entities = [];
@@ -1095,6 +1099,7 @@ export function initialize() {
     // setup listeners (keys/mouse/touch++, 
     setupKeyListeners();
     setupMouseListeners();
+    setupTouchListeners();
     
     // prolly need onresize, too, since that changes size of canvas...
     addEventListener("resize", onResize);
@@ -1241,6 +1246,67 @@ function removeMouseListeners() {
     }
 }
 
+function setupTouchListeners() {
+    addEventListener("touchstart", touchStart);
+    addEventListener("touchmove", touchMove);
+    addEventListener("touchend", touchEnd);
+    addEventListener("touchcancel", touchEnd);
+}
+
+function removeTouchListeners() {
+    removeEventListener("touchmove", touchMove);
+}
+
+function touchStart(event) {
+    keys.touchX = event.changedTouches[0].pageX;
+    keys.touchY = event.changedTouches[0].pageY;
+}
+
+function touchMove(event) {
+    console.log("touch", event);
+    const newX = event.changedTouches[0].pageX;
+    const newY = event.changedTouches[0].pageY;
+    if (newX > keys.touchX) {
+        keys.right = true;
+        keys.left = false;
+        keys.movementSpeedX = (newX - keys.touchX)/50;
+    }
+    else if (newX < keys.touchX) {
+        keys.right = false;
+        keys.left = true;
+        keys.movementSpeedX = (keys.touchX - newX)/50;
+    }
+    else {
+        keys.right = false;
+        keys.left = false;
+    }
+    if (newY > keys.touchY) {
+        keys.up = false;
+        keys.down = true;
+        keys.movementSpeedY = (newY - keys.touchY)/50;
+    }
+    else if (newY < keys.touchY) {
+        keys.up = true;
+        keys.down = false;
+        keys.movementSpeedY = (keys.touchY - newY)/50;
+    }
+    else {
+        keys.up = false;
+        keys.down = false;
+    }
+    if (keys.movementSpeedX > 1) {
+        keys.movementSpeedX = 1;
+    }
+    if (keys.movementSpeedY > 1) {
+        keys.movementSpeedY = 1;
+    }
+}
+
+function touchEnd(event) {
+    keys.touchX = keys.touchY = 0;
+    keys.left = keys.right = keys.up = keys.down = false;
+}
+
 function clicked(event) {
     //console.log("clicked", event.clientX, event.clientY);
     // need to do a hit (unless we are in aboutToServe-mode)
@@ -1289,13 +1355,13 @@ function loadOpponentImages() {
 
 function movePlayer(delta) {
     if (keys.down) {
-        player.position.y -= .5 * delta;
+        player.position.y -= .5 * delta * keys.movementSpeedY;
         if (player.position.y < -450) {
             player.position.y = -450;
         }
     }
     else if (keys.up) {
-        player.position.y += .5 * delta;
+        player.position.y += .5 * delta * keys.movementSpeedY;
         /*if (player.position.y > 210) {
             player.position.y = 210;
         }*/
@@ -1304,13 +1370,13 @@ function movePlayer(delta) {
         }
     }
     if (keys.left) {
-        player.position.x -= .6 * delta;
+        player.position.x -= .6 * delta * keys.movementSpeedX;
         if (player.position.x < -580) {
             player.position.x = -580;
         }
     }
     else if (keys.right) {
-        player.position.x += .6 * delta;
+        player.position.x += .6 * delta * keys.movementSpeedX;
         if (player.position.x > 580) {
             player.position.x = 580;
         }
@@ -1415,6 +1481,7 @@ function getNewPositions(peer, data) {
 function sendNewPosition() {
     if (weAreServer) {
         // send current state
+        //NOTDONE! //Should only send ball data on changes to velocity (ball hit or reset etc.. dont send back to player who initially sent, either...)
         const state = {serverPosition: player.playPosition, players: [], ball: {state: ball.state, pos: ball.position}};
         for (const plr of players) {
             state.players.push({pos: plr.position/*, state: xxx*/}); // assume fixed players-arrays, so all have same player in [0], etc..
@@ -1522,6 +1589,7 @@ export function uninitialize() {
     removeEventListener("resize", onResize);
     removeKeyListeners();
     removeMouseListeners();
+    removeTouchListeners();
     // unload images?? (possible?) (should be just to remove any references to them...)
     // remove canvas etc...
     // need to clean up everything so that callin initialize() again works fine (clean slate)

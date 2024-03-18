@@ -1254,12 +1254,25 @@ function setupTouchListeners() {
 }
 
 function removeTouchListeners() {
+    removeEventListener("touchstart", touchStart);
     removeEventListener("touchmove", touchMove);
+    removeEventListener("touchend", touchEnd);
+    removeEventListener("touchcancel", touchEnd);
 }
 
 function touchStart(event) {
-    keys.touchX = event.changedTouches[0].pageX;
-    keys.touchY = event.changedTouches[0].pageY;
+    if (event.changedTouches.length == 1) {
+        keys.touchX = event.changedTouches[0].pageX;
+        keys.touchY = event.changedTouches[0].pageY;
+    }
+    else {
+        const evt = new MouseEvent("click", {
+            clientX: event.changedTouches[1].pageX,
+            clientY: event.changedTouches[1].pageY
+        });
+        canvas.dispatchEvent(evt);
+        
+    }
 }
 
 function touchMove(event) {
@@ -1269,12 +1282,12 @@ function touchMove(event) {
     if (newX > keys.touchX) {
         keys.right = true;
         keys.left = false;
-        keys.movementSpeedX = (newX - keys.touchX)/50;
+        keys.movementSpeedX = (newX - keys.touchX)/30;
     }
     else if (newX < keys.touchX) {
         keys.right = false;
         keys.left = true;
-        keys.movementSpeedX = (keys.touchX - newX)/50;
+        keys.movementSpeedX = (keys.touchX - newX)/30;
     }
     else {
         keys.right = false;
@@ -1283,12 +1296,12 @@ function touchMove(event) {
     if (newY > keys.touchY) {
         keys.up = false;
         keys.down = true;
-        keys.movementSpeedY = (newY - keys.touchY)/50;
+        keys.movementSpeedY = (newY - keys.touchY)/30;
     }
     else if (newY < keys.touchY) {
         keys.up = true;
         keys.down = false;
-        keys.movementSpeedY = (keys.touchY - newY)/50;
+        keys.movementSpeedY = (keys.touchY - newY)/30;
     }
     else {
         keys.up = false;

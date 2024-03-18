@@ -700,26 +700,32 @@ class Ball extends Sprite {
         if (target.y < 0.6) {
             target.y = 0.6;
         }
+        let band = 1;
         //console.log("targetr", target);
         if (target.y >= 0.6 && target.y < 2) {
             xFactor = 550/33;
             yFactor = 10/0.6;
+            band = 1;
         }
         else if (target.y >= 2 && target.y < 4) {
             xFactor = 450/33;
             yFactor = 450/10.5;
+            band = 2;
         }
         else if (target.y >= 4 && target.y < 6) {
             xFactor = 550/33;
             yFactor = 450/10.5;
+            band = 3;
         }
         else if (target.y >= 6 && target.y < 8) {
             xFactor = 600/33;
             yFactor = 450/10.5;
+            band = 4;
         }
         else if (target.y >= 8 && target.y <= 11) {
             xFactor = 650/33;
             yFactor = 450/10.5;
+            band = 5;
         }
         target.x = target.x * xFactor;
         target.y = target.y * yFactor;
@@ -734,7 +740,8 @@ class Ball extends Sprite {
         // calc distance for x and y
         const xDist = target.x - ball.position.x;
         const yDist = target.y - ball.position.y;
-        const netHeight = 80; // guess
+        console.log("x,y dist", xDist, yDist)
+        /*const netHeight = 80; // guess
         let velocityZ = -5; //?? guess
         ball.velocity.x = xDist / 6;
         ball.velocity.y = yDist / 6;
@@ -753,10 +760,36 @@ class Ball extends Sprite {
              }
              ball.velocity.y -= slowDown * factY;
         }
-        ball.velocity.z = velocityZ;
+        ball.velocity.z = velocityZ;*/
         // how hard do we hit? (divide distance by amount of "frames" we want ball to take from source to target... trial and error)
         //NOTDONE! Not working right now...
         
+        // first, calculate distance directly to target (actual distance)
+        const actualDist = Math.sqrt(xDist*xDist + yDist*yDist);
+        console.log("actualDist", actualDist)
+        // new coord-system, parallell to dist
+        const nSource = new Vertex(0, ball.position.z);
+        const nTarget = new Vertex(actualDist, 0);
+        const netHeight = 80; // guess
+        const nAngle = Math.atan2(xDist, yDist);
+        const yDistToNet = 0 - ball.position.y;
+        const xDistToNet = yDistToNet * Math.tan(nAngle);
+        console.log("xDistToNet", xDistToNet, nAngle)
+        const nDistToNet = Math.sqrt(xDistToNet*xDistToNet + yDistToNet*yDistToNet);
+        const nBarrier = new Vertex(nDistToNet, netHeight);
+        const gravity = .5; // from ball.update calc...
+        console.log("source, trarget, barrier", nSource, nTarget, nBarrier)
+        const nVelocities = this.calculateInitialVelocities(gravity, nSource, nTarget, nBarrier);
+        console.log("calculated nVelocities", nVelocities)
+        // nVelocities.x is x/y velocities (need to calc them from nVelocities.x)
+        // nVelocities.y = z velocity
+        nVelocities.x *= 2;
+        nVelocities.y *= 2;
+        ball.velocity.z = -nVelocities.y;
+        ball.velocity.x = nVelocities.x * Math.sin(nAngle);
+        ball.velocity.y = nVelocities.x * Math.cos(nAngle);
+
+        // Nowhere near perfect, but sick and tired of it...
 
         console.log("ball.vel", ball.velocity)
 
@@ -766,7 +799,77 @@ class Ball extends Sprite {
         }
     }
 
-    
+    calculateInitialVelocities(gravity, source, target, barrier) {
+        let timeToBarrier, timeFromBarrierToTarget, totalTime, initialVelocityX, initialVelocityY;
+        
+        if (source.y == barrier.y) {
+            source.y -= 1;
+        }
+
+        if (source.y > barrier.y) {
+            timeToBarrier = (barrier.x - source.x) / Math.sqrt(2 * gravity * (source.y - barrier.y));
+        }
+
+        //if (source.y >= barrier.y) {
+            // wrong: // If the source is at or above the barrier height, calculate time based on horizontal distance
+            // time to fall to barrier height from source height.
+            /*if (source.y == barrier.y) {
+                timeToBarrier = 0;
+            }
+            else {
+                timeToBarrier = Math.sqrt((2 * (source.y - barrier.y) ) / gravity);
+            }*/
+        else {
+            // If the source is below the barrier height, calculate time based on vertical distance
+            //timeToBarrier = Math.sqrt((barrier.y - source.y) / (0.5 * gravity));
+            timeToBarrier = (barrier.x - source.x) / Math.sqrt(2 * gravity * (barrier.y - source.y));
+        }
+
+        // Calculate the time from barrier to target
+        timeFromBarrierToTarget = Math.sqrt((2 * (barrier.y - target.y) ) / (0.5 * gravity));
+
+        // Total time of flight
+        totalTime = timeToBarrier + timeFromBarrierToTarget;
+
+        // Calculate initial velocities
+        initialVelocityX = (target.x - source.x) / totalTime;
+        initialVelocityY = gravity * totalTime;
+
+        return { x: initialVelocityX*2, y: initialVelocityY/2 };
+    }
+
+    /*function calculateInitialVelocities(gravity, source, target, barrier) {
+    // Calculate distances
+    let dx = target.x - source.x;
+    let dy = target.y - source.y;
+    let bx = barrier.x - source.x;
+    let by = barrier.y - source.y;
+
+    // Calculate time to reach barrier in x direction
+    let t1 = Math.sqrt((2 * by) / gravity);
+
+    // Calculate initial x velocity
+    let vx = bx / t1;
+
+    // Calculate total time to reach target
+    let t2 = Math.sqrt((2 * (dy + (gravity * t1 * t1 / 2))) / gravity);
+
+    // Calculate initial y velocity
+    let vy = gravity * t2;
+
+    return { vx: vx, vy: vy };
+}
+
+let gravity = 9.8; // m/s^2
+let source = { x: 0, y: 0 }; // Source coordinates
+let target = { x: 100, y: 0 }; // Target coordinates
+let barrier = { x: 50, y: 150 }; // Barrier coordinates
+
+let velocities = calculateInitialVelocities(gravity, source, target, barrier);
+
+console.log(`Initial velocities: vx = ${velocities.vx.toFixed(2)} m/s, vy = ${velocities.vy.toFixed(2)} m/s`);
+//Initial velocities: vx = 15.65 m/s, vy = 31.30 m/s (50 high barr)
+//Initial velocities: vx = 9.04 m/s, vy = 54.22 m/s (150 barr)*/
     
 }
 class Net extends Sprite {
@@ -785,7 +888,7 @@ class Net extends Sprite {
         // Need it's own function to hack it in proper place...
         const scaleFactorX = this.width*this.scale;
         const scaleFactorY = this.height*this.scale;
-        ctx.drawImage(img.img, 0, 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy -25 + p.z*scaleFactorY/2, p.z*scaleFactorX, -p.z*scaleFactorY);
+        ctx.drawImage(img.img, 0, 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy -(canvasHeight/45.8) + p.z*scaleFactorY/2, p.z*scaleFactorX, -p.z*scaleFactorY); // (canvasHeight/45.8) manually adjustment to make it fit the not quite symmetrical bakcground...
         
     }
 }

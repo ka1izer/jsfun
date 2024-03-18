@@ -360,6 +360,165 @@ function renderPeers() {
     }
 }
 
+//////////////////////////
+
+function calculateInitialVelocities(gravity, source, target, barrier) {
+    // Calculate distances
+    let dx = target.x - source.x;
+    let dy = target.y - source.y;
+    let bx = barrier.x - source.x;
+    let by = barrier.y - source.y;
+
+    // Calculate time to reach barrier in x direction
+    let t1 = Math.sqrt((2 * by) / gravity);
+
+    // Calculate initial x velocity
+    let vx = bx / t1;
+
+    // Calculate total time to reach target
+    let t2 = Math.sqrt((2 * (dy + (gravity * t1 * t1 / 2))) / gravity);
+
+    // Calculate initial y velocity
+    let vy = gravity * t2;
+
+    return { vx: vx, vy: vy };
+}
+
+function calculateInitialVelocities2(gravity, source, target, barrier) {
+    // Calculate distances
+    let dx = target.x - source.x;
+    let dy = target.y - source.y;
+    let bx = barrier.x - source.x;
+    let by = barrier.y - source.y;
+
+    // Calculate time to reach barrier in x direction
+    let t1 = Math.sqrt((2 * by) / gravity);
+
+    // Calculate initial x velocity
+    let vx = dx / t1;
+
+    // Calculate total time to reach target
+    let t2 = dx / vx;
+
+    // Calculate initial y velocity
+    let vy = gravity * t2;
+
+    return { vx: vx, vy: vy };
+}
+
+function calculateInitialVelocities3(gravity, source, target, barrier) {
+    // Calculate distances
+    let dx = target.x - source.x;
+    let dy = source.y - target.y; // Note the change here
+    let bx = barrier.x - source.x;
+    let by = source.y - barrier.y; // And here
+
+    // Calculate time to reach barrier in x direction
+    let t1 = Math.sqrt((2 * by) / gravity);
+
+    // Calculate initial x velocity
+    let vx = bx / t1;
+
+    // Calculate total time to reach target
+    let t2 = dx / vx;
+
+    // Calculate initial y velocity
+    let vy = gravity * t2;
+
+    return { vx: vx, vy: vy };
+}
+
+function calculateInitialVelocities4(gravity, source, target, barrier) {
+    // Calculate the time to reach the barrier
+    let timeToBarrier = (barrier.x - source.x) / Math.sqrt(2 * gravity * (barrier.y - source.y));
+    
+    // Calculate the time from barrier to target
+    let timeFromBarrierToTarget = Math.sqrt((barrier.y - target.y) / (0.5 * gravity));
+    
+    // Total time of flight
+    let totalTime = timeToBarrier + timeFromBarrierToTarget;
+    
+    // Calculate initial velocities
+    let initialVelocityX = (target.x - source.x) / totalTime;
+    let initialVelocityY = gravity * totalTime;
+    
+    return { vx: initialVelocityX, vy: initialVelocityY };
+}
+
+function calculateInitialVelocities5(gravity, source, target, barrier) {
+    let timeToBarrier, timeFromBarrierToTarget, totalTime, initialVelocityX, initialVelocityY;
+
+    
+    if (source.y > barrier.y) {
+        timeToBarrier = -2*(barrier.x - source.x) / Math.sqrt(2 * gravity * (source.y - barrier.y));
+    }
+    else if (source.y == barrier.y) {
+        timeToBarrier = 0;
+    }
+
+    //if (source.y >= barrier.y) {
+        // wrong: // If the source is at or above the barrier height, calculate time based on horizontal distance
+        // time to fall to barrier height from source height.
+        /*if (source.y == barrier.y) {
+            timeToBarrier = 0;
+        }
+        else {
+            timeToBarrier = Math.sqrt((2 * (source.y - barrier.y) ) / gravity);
+        }*/
+    else {
+        // If the source is below the barrier height, calculate time based on vertical distance
+        //timeToBarrier = Math.sqrt((barrier.y - source.y) / (0.5 * gravity));
+        timeToBarrier = (barrier.x - source.x) / Math.sqrt(2 * gravity * (barrier.y - source.y));
+    }
+
+    // Calculate the time from barrier to target
+    timeFromBarrierToTarget = Math.sqrt((2 * (barrier.y - target.y) ) / (0.5 * gravity));
+
+    // Total time of flight
+    totalTime = timeToBarrier + timeFromBarrierToTarget;
+
+    // Calculate initial velocities
+    initialVelocityX = (target.x - source.x) / totalTime;
+    initialVelocityY = gravity * totalTime;
+
+    return { vx: initialVelocityX, vy: initialVelocityY };
+}
+
+
+let gravity = 9.8; // m/s^2
+let source = { x: 0, y: 0 }; // Source coordinates
+let target = { x: 100, y: 0 }; // Target coordinates
+let barrier = { x: 50, y: 50 }; // Barrier coordinates
+
+let velocities = calculateInitialVelocities5(gravity, source, target, barrier);
+console.log(`Initial velocities: vx = ${velocities.vx.toFixed(2)} m/s, vy = ${velocities.vy.toFixed(2)} m/s`);
+barrier.y = 150;
+velocities = calculateInitialVelocities5(gravity, source, target, barrier);
+console.log(`Initial velocities: vx = ${velocities.vx.toFixed(2)} m/s, vy = ${velocities.vy.toFixed(2)} m/s`);
+target.x = 150;
+velocities = calculateInitialVelocities5(gravity, source, target, barrier);
+console.log(`Initial velocities: vx = ${velocities.vx.toFixed(2)} m/s, vy = ${velocities.vy.toFixed(2)} m/s`);
+source.y = 200;
+velocities = calculateInitialVelocities5(gravity, source, target, barrier);
+console.log(`Initial velocities: vx = ${velocities.vx.toFixed(2)} m/s, vy = ${velocities.vy.toFixed(2)} m/s`);
+//Initial velocities: vx = 15.65 m/s, vy = 31.30 m/s (50 high barr)
+//Initial velocities: vx = 9.04 m/s, vy = 54.22 m/s (150 barr)
+//Initial velocities: vx = 9.04 m/s, vy = 54.22 m/s (target x=150)
+
+// 2nd
+//Initial velocities: vx = 27.11 m/s, vy = 54.22 m/s (target x=150)
+//Initial velocities: vx = 18.07 m/s, vy = 54.22 m/s (target x=100)
+//Initial velocities: vx = 31.30 m/s, vy = 31.30 m/s (barrier 50)
+
+//4th
+//Initial velocities: vx = 20.87 m/s, vy = 46.96 m/s (barrier 50)
+//Initial velocities: vx = 15.49 m/s, vy = 63.26 m/s (barr 150)
+//Initial velocities: vx = 23.24 m/s, vy = 63.26 m/s (target x=150)
+//Initial velocities: vx = 22.52 m/s, vy = 65.29 m/s (source y = 50)
+// fails with source.y > barrier.y
+
+/////////////////////////
+
 function renderGames() {
     const gamesDiv = document.getElementById("gamesGrid");
     gamesDiv.innerHTML = "";

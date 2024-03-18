@@ -1258,6 +1258,7 @@ function setupTouchListeners() {
     touchDiv.addEventListener("touchmove", touchMove);
     touchDiv.addEventListener("touchend", touchEnd);
     touchDiv.addEventListener("touchcancel", touchEnd);
+    canvas.addEventListener("touchend", touchClicked);
 }
 
 function removeTouchListeners() {
@@ -1265,6 +1266,21 @@ function removeTouchListeners() {
     touchDiv.removeEventListener("touchmove", touchMove);
     touchDiv.removeEventListener("touchend", touchEnd);
     touchDiv.removeEventListener("touchcancel", touchEnd);
+    canvas.removeEventListener("touchend", touchClicked);
+}
+
+function touchClicked(event) {
+    for (const touch of event.changedTouches) {
+        if (keys.touchIdentifier != touch.identifier) {
+            const evt = new MouseEvent("click", {
+                bubbles: false,
+                clientX: touch.pageX,
+                clientY: touch.pageY
+            });
+            clicked(evt);
+            return;
+        }
+    }
 }
 
 function touchStart(event) {

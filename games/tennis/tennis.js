@@ -935,6 +935,7 @@ class Court extends Entity {
 
 
 let mainDiv = null;
+let touchDiv = null;
 let canvas = null;
 let ctx = null;
 
@@ -1095,6 +1096,11 @@ export function initialize() {
     // set background image on mainDiv (tennis court)
     mainDiv.style.backgroundImage = "url('./games/tennis/background_court.jpg')";
 
+    touchDiv = document.createElement("div");
+    touchDiv.id = "touchDiv";
+    touchDiv.className = "touchDiv";
+    mainDiv.parentElement.appendChild(touchDiv);
+
     // preload images/sprites
     
     // setup listeners (keys/mouse/touch++, 
@@ -1248,17 +1254,17 @@ function removeMouseListeners() {
 }
 
 function setupTouchListeners() {
-    addEventListener("touchstart", touchStart);
-    addEventListener("touchmove", touchMove);
-    addEventListener("touchend", touchEnd);
-    addEventListener("touchcancel", touchEnd);
+    touchDiv.addEventListener("touchstart", touchStart);
+    touchDiv.addEventListener("touchmove", touchMove);
+    touchDiv.addEventListener("touchend", touchEnd);
+    touchDiv.addEventListener("touchcancel", touchEnd);
 }
 
 function removeTouchListeners() {
-    removeEventListener("touchstart", touchStart);
-    removeEventListener("touchmove", touchMove);
-    removeEventListener("touchend", touchEnd);
-    removeEventListener("touchcancel", touchEnd);
+    touchDiv.removeEventListener("touchstart", touchStart);
+    touchDiv.removeEventListener("touchmove", touchMove);
+    touchDiv.removeEventListener("touchend", touchEnd);
+    touchDiv.removeEventListener("touchcancel", touchEnd);
 }
 
 function touchStart(event) {
@@ -1268,18 +1274,18 @@ function touchStart(event) {
         keys.touchIdentifier = event.changedTouches[0].identifier;
     }
     else {
-        for (const touch of event.changedTouches) {
+        /*for (const touch of event.changedTouches) {
             if (keys.touchIdentifier != touch.identifier) {
                 const evt = new MouseEvent("click", {
                     bubbles: false,
                     clientX: touch.pageX,
                     clientY: touch.pageY
-
                 });
-                canvas.dispatchEvent(evt);
+                //canvas.dispatchEvent(evt);
+                clicked(evt);
                 return;
             }
-        };
+        };*/
     }
 }
 
@@ -1617,6 +1623,8 @@ function onResize(event) {
 
 export function uninitialize() {
     // stop gameloop..?MainLoop.stop()
+    // remove touchDiv
+    document.getElementById("touchDiv").remove();
     // remove comms listeners...
     // remove listeners (keys/mouse/touch++)
     removeEventListener("resize", onResize);

@@ -23,6 +23,10 @@
     /*background-size: contain;*/
 }
 
+.touchDiv {
+    height: 100%;
+}
+
 .form {
     /*margin: auto;
     width: 50%;*/

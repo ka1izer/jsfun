@@ -3,7 +3,7 @@
         <!--<script src="script.js" type="module"></script>-->
         <meta charset="utf-8" />
 	    <meta name="viewport" content="width=device-width,initial-scale=1">
-        <link rel="stylesheet" href="index.css?7" type="text/css">
+        <link rel="stylesheet" href="index.css?8" type="text/css">
     </head>
     <body style="height:100vh">
         <!--Spør om userid (lagre i cookie og etterhvert pwa localstorage), la bruker opprette rom eller joine... redirect til url som har med romid, så reloads ikke ødelegger-->
@@ -80,7 +80,7 @@
         </div>
         <div id="mainDiv" style="display:none"></div>
         <script type="module">
-            import {changeNick, createRoom, joinRoom, joinRoomByCode, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?10';
+            import {changeNick, createRoom, joinRoom, joinRoomByCode, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?12';
 
             document.getElementById("nickForm").addEventListener('submit', changeNick);
             document.getElementById("createRoom").addEventListener('click', createRoom);

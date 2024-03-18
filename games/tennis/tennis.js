@@ -982,6 +982,7 @@ const keys = {
     clickedY: 0,
     touchX: 0,
     touchY: 0,
+    touchIdentifier: null,
     movementSpeedX: 1,
     movementSpeedY: 1,
 }
@@ -1261,63 +1262,82 @@ function removeTouchListeners() {
 }
 
 function touchStart(event) {
-    if (event.changedTouches.length == 1) {
+    if (event.changedTouches.length == 1 || keys.touchIdentifier == null) {
         keys.touchX = event.changedTouches[0].pageX;
         keys.touchY = event.changedTouches[0].pageY;
+        keys.touchIdentifier = event.changedTouches[0].identifier;
     }
     else {
-        const evt = new MouseEvent("click", {
-            clientX: event.changedTouches[1].pageX,
-            clientY: event.changedTouches[1].pageY
-        });
-        canvas.dispatchEvent(evt);
-        
+        for (const touch of event.changedTouches) {
+            if (keys.touchIdentifier != touch.identifier) {
+                const evt = new MouseEvent("click", {
+                    bubbles: false,
+                    clientX: touch.pageX,
+                    clientY: touch.pageY
+
+                });
+                canvas.dispatchEvent(evt);
+                return;
+            }
+        };
     }
 }
 
 function touchMove(event) {
     console.log("touch", event);
-    const newX = event.changedTouches[0].pageX;
-    const newY = event.changedTouches[0].pageY;
-    if (newX > keys.touchX) {
-        keys.right = true;
-        keys.left = false;
-        keys.movementSpeedX = (newX - keys.touchX)/30;
-    }
-    else if (newX < keys.touchX) {
-        keys.right = false;
-        keys.left = true;
-        keys.movementSpeedX = (keys.touchX - newX)/30;
-    }
-    else {
-        keys.right = false;
-        keys.left = false;
-    }
-    if (newY > keys.touchY) {
-        keys.up = false;
-        keys.down = true;
-        keys.movementSpeedY = (newY - keys.touchY)/30;
-    }
-    else if (newY < keys.touchY) {
-        keys.up = true;
-        keys.down = false;
-        keys.movementSpeedY = (keys.touchY - newY)/30;
-    }
-    else {
-        keys.up = false;
-        keys.down = false;
-    }
-    if (keys.movementSpeedX > 1) {
-        keys.movementSpeedX = 1;
-    }
-    if (keys.movementSpeedY > 1) {
-        keys.movementSpeedY = 1;
+    for (const touch of event.changedTouches) {
+        if (keys.touchIdentifier == touch.identifier) {
+            const newX = touch.pageX;
+            const newY = touch.pageY;
+            if (newX > keys.touchX) {
+                keys.right = true;
+                keys.left = false;
+                keys.movementSpeedX = (newX - keys.touchX)/30;
+            }
+            else if (newX < keys.touchX) {
+                keys.right = false;
+                keys.left = true;
+                keys.movementSpeedX = (keys.touchX - newX)/30;
+            }
+            else {
+                keys.right = false;
+                keys.left = false;
+            }
+            if (newY > keys.touchY) {
+                keys.up = false;
+                keys.down = true;
+                keys.movementSpeedY = (newY - keys.touchY)/30;
+            }
+            else if (newY < keys.touchY) {
+                keys.up = true;
+                keys.down = false;
+                keys.movementSpeedY = (keys.touchY - newY)/30;
+            }
+            else {
+                keys.up = false;
+                keys.down = false;
+            }
+            if (keys.movementSpeedX > 1) {
+                keys.movementSpeedX = 1;
+            }
+            if (keys.movementSpeedY > 1) {
+                keys.movementSpeedY = 1;
+            }
+            return;
+        }
     }
 }
 
 function touchEnd(event) {
-    keys.touchX = keys.touchY = 0;
-    keys.left = keys.right = keys.up = keys.down = false;
+    for (const touch of event.changedTouches) {
+        if (keys.touchIdentifier == touch.identifier) {
+            keys.touchX = keys.touchY = 0;
+            keys.left = keys.right = keys.up = keys.down = false;
+            keys.touchIdentifier = null;
+            return;
+        }
+    }
+
 }
 
 function clicked(event) {

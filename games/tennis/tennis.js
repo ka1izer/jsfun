@@ -373,16 +373,16 @@ class Sprite extends Entity { // sprites: players, possibly ball,...? Rackets?
         //console.log("world position", this.position)
         let v = this.moveToWorldCoordinate(this.position);
         //console.log("afterwolrd", v)
-        if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl worlv", v)
+        //if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl worlv", v)
         
         // så, gjør om fra world til camera...
         v = camera.toView(v);
-        if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl camv", v)
+        //if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl camv", v)
 
         // project
         //let p = this.project(face[0]);
         let p = this.project(v);
-        if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl projectv", p)
+        //if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl projectv", p)
 
         //console.log("player coords", p.x+dx, p.y+dy)
         arrDrawOps.push({z:p.z, draw: () => {
@@ -1268,6 +1268,7 @@ function removeTouchListeners() {
 }
 
 function touchStart(event) {
+    console.log("eventStart", event)
     if (event.changedTouches.length == 1 || keys.touchIdentifier == null) {
         keys.touchX = event.changedTouches[0].pageX;
         keys.touchY = event.changedTouches[0].pageY;
@@ -1290,7 +1291,6 @@ function touchStart(event) {
 }
 
 function touchMove(event) {
-    console.log("touch", event);
     for (const touch of event.changedTouches) {
         if (keys.touchIdentifier == touch.identifier) {
             const newX = touch.pageX;
@@ -1335,8 +1335,9 @@ function touchMove(event) {
 }
 
 function touchEnd(event) {
+    console.log("eventEND", event)
     for (const touch of event.changedTouches) {
-        if (keys.touchIdentifier == touch.identifier) {
+        if (keys.touchIdentifier == touch.identifier && touch.force == 0) {
             keys.touchX = keys.touchY = 0;
             keys.left = keys.right = keys.up = keys.down = false;
             keys.touchIdentifier = null;

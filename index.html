@@ -58,7 +58,7 @@
             <!-- qr-scanner to scan qr-code for roomId -->
             <br>
             <div>
-                <label>Or scan qr-code to join room</label>
+                <label>13 Or scan qr-code to join room</label>
                 <button id="scanQR">Scan QR code</button>
                 <div id="qrscanner" style="display: none; line-height: 0;">
                     <video id="scannerVideo" disablepictureinpicture playsinline></video>
@@ -80,7 +80,7 @@
         </div>
         <div id="mainDiv" style="display:none"></div>
         <script type="module">
-            import {changeNick, createRoom, joinRoom, joinRoomByCode, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?12';
+            import {changeNick, createRoom, joinRoom, joinRoomByCode, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?13';
 
             document.getElementById("nickForm").addEventListener('submit', changeNick);
             document.getElementById("createRoom").addEventListener('click', createRoom);

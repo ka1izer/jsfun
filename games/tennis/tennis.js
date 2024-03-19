@@ -1258,7 +1258,7 @@ function setupTouchListeners() {
     touchDiv.addEventListener("touchmove", touchMove);
     touchDiv.addEventListener("touchend", touchEnd);
     touchDiv.addEventListener("touchcancel", touchEnd);
-    //canvas.addEventListener("touchend", touchClicked);
+    canvas.addEventListener("touchend", touchClicked);
 }
 
 function removeTouchListeners() {
@@ -1266,7 +1266,7 @@ function removeTouchListeners() {
     touchDiv.removeEventListener("touchmove", touchMove);
     touchDiv.removeEventListener("touchend", touchEnd);
     touchDiv.removeEventListener("touchcancel", touchEnd);
-    //canvas.removeEventListener("touchend", touchClicked);
+    canvas.removeEventListener("touchend", touchClicked);
 }
 
 function touchClicked(event) {

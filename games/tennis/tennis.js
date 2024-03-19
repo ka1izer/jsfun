@@ -1366,6 +1366,7 @@ function clicked(event) {
     // need to do a hit (unless we are in aboutToServe-mode)
     // if hit-> translate event.clientX/Y to world coords (z = 0), always on other side of net (y > 80 or so?), and prolly inside bounds?
     // calculate velocities to reach that target... give em to the ball...
+    touchDiv.innerHTML =  touchDiv.innerHTML + ". Clicked";
     keys.clickedX = event.clientX;
     keys.clickedY = event.clientY;
     keys.hit = 10;

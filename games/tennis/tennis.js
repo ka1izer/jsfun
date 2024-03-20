@@ -418,6 +418,106 @@ const BallState = {
     AboutToServe: 0, InPlay: 1, OutOfBounds: 2, AtRest: 3
 }
 let gameState = GameState.AboutToServe;
+// noen skal serve: hvem. Noen slår ballen: hvem (hvilken side). Ballen spretter første gang. Ballen spretter igjen: hvilken side kom den fra. Poeng. Bytte hvem som server...
+// strengt tatt bør server ha 2 forsøk om bommer på ballen første gang (og stopper ved første sprett uten treff på serve...)
+// currently, endrer bare local player sin state, og gameState aldri endret etter initialize.
+// lar hver peer bestemme, hvis de sender over at de traff ballen, stol på det...
+// server sender til andre peers...
+class PlayState {
+    gameState = GameState.AboutToServe;
+    lastPlayerToHitBall = new Player(); // just for IDE, may switch to using nicks instead...?
+    ballBounces = 0; // only player actually hitting (or trying to hit in case of serving) should update this
+    lastPlayerToServe = this.lastPlayerToHitBall; // just for IDE
+    attemptsToServe = 0;
+    serves = 0; // just switch server on 4 serves for now?
+    scores = [0,0]; // scores for team1 and team2...
+
+    serving(plr) {
+        this.lastPlayerToServe = plr;
+        this.ballBounces = 0;
+        this.attemptsToServe++;
+        // should send to peer(s)
+        notDone!;
+    }
+    hit(plr) {
+        if (this.attemptsToServe > 0) {
+            // hit is from a serve...
+            this.serves++;
+        }
+        this.attemptsToServe = 0;
+        this.lastPlayerToHitBall = plr;
+        this.ballBounces = 0;
+        // should send to peer(s)
+        notDone!;
+    }
+    ballBounce() {
+        this.ballBounces++;
+        if (this.attemptsToServe > 0) {
+            // was from serve... failed
+            this.ballBounces = 0;
+            this.attemptsToServe++;
+            if (this.attemptsToServe > 2) {
+                this.attemptsToServe = 0;
+                this.serves++;
+            }
+        }
+        else if (this.ballBounces > 1) {
+            this.ballBounces = 0;
+            this.attemptsToServe = 0;
+            this.serves++;
+            // lastPlayerToHitBall's team should get a point...
+            const team = this.getTeamOfPlayer(this.lastPlayerToHitBall);
+            this.scores[team]++;
+        }
+        if (this.serves >= 4) {
+            // should give serve to next after lastPlayerToServe....
+            notDone!;
+        }
+        else {
+            // lastPlayerToServe should ready next serve...
+            notDone!;
+        }
+        
+        // should send to peer(s)
+        notDone!;
+    }
+    ballOutOfBounds() {
+        // should not really happen, but...
+        if (this.attemptsToServe > 0) {
+            // was from serve... failed
+            this.ballBounces = 0;
+            this.attemptsToServe++;
+            if (this.attemptsToServe > 2) {
+                this.attemptsToServe = 0;
+                this.serves++;
+            }
+        }
+        else {
+            this.ballBounces = 0;
+            this.attemptsToServe = 0;
+            this.serves++;
+            // team opposite lastPlayerToHitBall should get a point...
+            const team = this.getTeamOfPlayer(this.lastPlayerToHitBall);
+            this.scores[team == 0? 1 : 0]++;
+        }
+        if (this.serves >= 4) {
+            // should give serve to next after lastPlayerToServe....
+            notDone!;
+        }
+        else {
+            // lastPlayerToServe should ready next serve...
+            notDone!;
+        }
+        
+        // should send to peer(s)
+        notDone!;
+    }
+
+    getTeamOfPlayer(plr) {
+        return plr.playPosition[0]; // 0 or 1 for team 1 or 2...
+    }
+}
+const playState = new PlayState();
 class Player extends Sprite {
     peer;
     playPosition = []; // [0, 0] is team1, first player, [0,1] is same team, second player. [1,0] is second team first player, etc...
@@ -463,6 +563,7 @@ class Player extends Sprite {
             ball.state = BallState.InPlay;
             this.state = PlayerState.Idle;
             ball.serve();
+            playState.serving(player);
         }
         else if (this.state == PlayerState.Idle) {
 
@@ -472,6 +573,7 @@ class Player extends Sprite {
                 console.log("HIT!z", ball.position.z)
                 keys.hit = 0;
                 ball.hit();
+                playState.hit(player);
             }
             else {
                 console.log("MISS", ball.position, this.position);

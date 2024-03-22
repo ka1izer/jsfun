@@ -51,10 +51,12 @@ MainLoop.setDraw(interpolationPercentage => {
         return 0;
     });
     arrDrawOps.forEach(d => d.draw());
+
+    drawScores(ctx);
 });
 // runs at the end of each frame and is typically used for cleanup tasks such as adjusting the visual quality based on the frame rate.
 MainLoop.setEnd( (fps, panic) => {
-    sendNewPosition(); // no need to send in update(), is it? Once each frame should be enough, surely?
+    sendNewState(); // no need to send in update(), is it? Once each frame should be enough, surely?
 
     if (panic) {
         console.log("PANIC!! fps", fps);
@@ -225,6 +227,24 @@ class Entity {
         // need position and size? maybe width+height? players have their position/base on the bottom... Ball in center... and cuboid or sphere? ball should be sphere, but cube would prolly work more than good enough
         // maybe rectangle with offset? 8 vertices + offset?
         return this.boundingRect.collidesWith(this.position, otherEntity.position, otherEntity.boundingRect);
+    }
+
+    updatePos(sameTeam, newPos) {
+        if (sameTeam) {
+            this.position.set(newPos.x, newPos.y, newPos.z);
+        }
+        else {
+            this.position.set(-newPos.x, -newPos.y, newPos.z);
+        }
+    }
+
+    updateVel(sameTeam, newVel) {
+        if (sameTeam) {
+            this.velocity.set(newVel.x, newVel.y, newVel.z);
+        }
+        else {
+            this.velocity.set(-newVel.x, -newVel.y, newVel.z);
+        }
     }
 
     project(vertex) {
@@ -408,6 +428,16 @@ class Sprite extends Entity { // sprites: players, possibly ball,...? Rackets?
         }
     }
 }
+function drawScores(ctx) {
+    const ourTeam = player.playPosition[0];
+    const otherTeam = ourTeam == 0? 1 : 0;
+    const ourScore = playState.scores[ourTeam];
+    const otherScore = playState.scores[otherTeam];
+
+    ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
+    ctx.strokeText("Us:       " + ourScore, 10, 10);
+    ctx.strokeText("Them:   " + otherScore, 10, 20);
+}
 const PlayerState = {
     AboutToServe: 0, Serving: 1, HitBall: 2, MissedBall: 3, Idle: 4
 };
@@ -425,33 +455,48 @@ let gameState = GameState.AboutToServe;
 // server sender til andre peers...
 class PlayState {
     gameState = GameState.AboutToServe;
-    lastPlayerToHitBall = new Player(); // just for IDE, may switch to using nicks instead...?
+    lastPlayerToHitBall = null;
     ballBounces = 0; // only player actually hitting (or trying to hit in case of serving) should update this
-    lastPlayerToServe = this.lastPlayerToHitBall; // just for IDE
+    lastPlayerToServe = null;
     attemptsToServe = 0;
     serves = 0; // just switch server on 4 serves for now?
     scores = [0,0]; // scores for team1 and team2...
+    changedState = {}; // {playerMoved: nick, pos}, {aboutToServe: nick}, {serving: nick, ball:{pos, vel}}, {hit: nick, ball:{pos, vel}}, {score: [1,0]}, {newPlayerToServe: nick} , {aboutToServe: nick}
 
+    playerMoved(plr) {
+        // can get multiple of these between times we send(?), so should maybe use array or something here...?
+        this.changedState.playerMoved = plr.peer.nick; // should prolly change to send keys/touch-equiv instead, with position only occasionally, but...
+        this.changedState.pos = plr.position;
+    }
+    aboutToServe(plr) {
+        // this is always called by player about to serve (not just server)
+        this.changedState.aboutToServe = plr.peer.nick;
+    }
     serving(plr) {
+        // this is always called by player doing the serving (not just server)
         this.lastPlayerToServe = plr;
         this.ballBounces = 0;
         this.attemptsToServe++;
-        // should send to peer(s)
-        notDone!;
+        this.changedState.serving = this.lastPlayerToServe.peer.nick;
+        this.changedState.ball = {pos: ball.position, vel: ball.velocity};
+    }
+    miss(plr) {
+        // this is always called by player doing the missing (not just server)
+        // no need yet..... since we don't animate hits yet...
     }
     hit(plr) {
-        if (this.attemptsToServe > 0) {
-            // hit is from a serve...
-            this.serves++;
-        }
+        // this is always called by player doing the hitting (not just server)
+        
         this.attemptsToServe = 0;
         this.lastPlayerToHitBall = plr;
         this.ballBounces = 0;
-        // should send to peer(s)
-        notDone!;
+        this.changedState.hit = this.lastPlayerToHitBall.peer.nick;
+        this.changedState.ball = {pos: ball.position, vel: ball.velocity};
     }
     ballBounce() {
+        // this is only called by server
         this.ballBounces++;
+        let fail = false;
         if (this.attemptsToServe > 0) {
             // was from serve... failed
             this.ballBounces = 0;
@@ -459,7 +504,11 @@ class PlayState {
             if (this.attemptsToServe > 2) {
                 this.attemptsToServe = 0;
                 this.serves++;
+                const team = this.getTeamOfPlayer(this.lastPlayerToServe);
+                this.scores[team == 0? 1 : 0]++;
+                this.changedState.score = this.scores;
             }
+            fail = true;
         }
         else if (this.ballBounces > 1) {
             this.ballBounces = 0;
@@ -468,21 +517,47 @@ class PlayState {
             // lastPlayerToHitBall's team should get a point...
             const team = this.getTeamOfPlayer(this.lastPlayerToHitBall);
             this.scores[team]++;
+            this.changedState.score = this.scores;
+            fail = true;
         }
-        if (this.serves >= 4) {
-            // should give serve to next after lastPlayerToServe....
-            notDone!;
-        }
-        else {
-            // lastPlayerToServe should ready next serve...
-            notDone!;
+        if (fail) {
+            if (this.serves >= 4) {
+                this.serves = 0;
+                this.attemptsToServe = 0;
+                // should give serve to next after lastPlayerToServe....
+                this.lastPlayerToServe.lastServed = Date.now();
+                this.lastPlayerToServe.changeState(PlayerState.Idle);
+                this.lastPlayerToHitBall = null;
+                // find next player to serve
+                const prevTeam = this.getTeamOfPlayer(this.lastPlayerToServe);
+                const playersOnOtherTeam = players.filter((plr, index, arr) => this.getTeamOfPlayer(plr) != prevTeam);
+                if (playersOnOtherTeam.length == 1) {
+                    this.lastPlayerToServe = playersOnOtherTeam[0];
+                }
+                else if (playersOnOtherTeam.length == 2) {
+                    //ball.changeState(BallState.AboutToServe, playersOnOtherTeam[0]);
+                    // need to alternate... choose the one whose lastServed is oldest..
+                    this.lastPlayerToServe = playersOnOtherTeam.sort((a,b) => a.lastServed - b.lastServed)[0];
+                }
+                else {
+                    // noone on other team...?
+                    // dont change server
+                }
+                ball.changeState(BallState.AboutToServe, this.lastPlayerToServe);
+                //this.changedState.newPlayerToServe = this.lastPlayerToServe.peer.nick;
+                this.changedState.aboutToServe = this.lastPlayerToServe.peer.nick;
+                //this.changedState.ball = {pos: ball.position, vel: ball.velocity};
+            }
+            else {
+                // lastPlayerToServe should ready next serve...
+                ball.changeState(BallState.AboutToServe);
+                this.changedState.aboutToServe = this.lastPlayerToServe.peer.nick;
+            }
         }
         
-        // should send to peer(s)
-        notDone!;
     }
     ballOutOfBounds() {
-        // should not really happen, but...
+        // only called by server
         if (this.attemptsToServe > 0) {
             // was from serve... failed
             this.ballBounces = 0;
@@ -490,27 +565,58 @@ class PlayState {
             if (this.attemptsToServe > 2) {
                 this.attemptsToServe = 0;
                 this.serves++;
+                const team = this.getTeamOfPlayer(this.lastPlayerToHitBall);
+                this.scores[team == 0? 1 : 0]++;
+                this.changedState.score = this.scores;
             }
         }
         else {
-            this.ballBounces = 0;
             this.attemptsToServe = 0;
             this.serves++;
-            // team opposite lastPlayerToHitBall should get a point...
-            const team = this.getTeamOfPlayer(this.lastPlayerToHitBall);
-            this.scores[team == 0? 1 : 0]++;
+            let team;
+            if (this.ballBounces > 0) {
+                team = this.getTeamOfPlayer(this.lastPlayerToHitBall);
+            }
+            else {
+                // team opposite lastPlayerToHitBall should get a point...
+                team = this.getTeamOfPlayer(this.lastPlayerToHitBall) == 0? 1 : 0;
+            }
+            this.scores[team]++;
+            this.changedState.score = this.scores;
+            this.ballBounces = 0;
         }
         if (this.serves >= 4) {
+            this.serves = 0;
+            this.attemptsToServe = 0;
             // should give serve to next after lastPlayerToServe....
-            notDone!;
+            this.lastPlayerToServe.lastServed = Date.now();
+            this.lastPlayerToServe.changeState(PlayerState.Idle);
+            this.lastPlayerToHitBall = null;
+            // find next player to serve
+            const prevTeam = this.getTeamOfPlayer(this.lastPlayerToServe);
+            const playersOnOtherTeam = players.filter((plr, index, arr) => this.getTeamOfPlayer(plr) != prevTeam);
+            if (playersOnOtherTeam.length == 1) {
+                this.lastPlayerToServe = playersOnOtherTeam[0];
+            }
+            else if (playersOnOtherTeam.length == 2) {
+                //ball.changeState(BallState.AboutToServe, playersOnOtherTeam[0]);
+                // need to alternate... choose the one whose lastServed is oldest..
+                this.lastPlayerToServe = playersOnOtherTeam.sort((a,b) => a.lastServed - b.lastServed)[0];
+            }
+            else {
+                // noone on other team...?
+                // dont change server
+            }
+            ball.changeState(BallState.AboutToServe, this.lastPlayerToServe);
+            //this.changedState.newPlayerToServe = this.lastPlayerToServe.peer.nick;
+            this.changedState.aboutToServe = this.lastPlayerToServe.peer.nick;
         }
         else {
             // lastPlayerToServe should ready next serve...
-            notDone!;
+            ball.changeState(BallState.AboutToServe);
+            this.changedState.aboutToServe = this.lastPlayerToServe.peer.nick;
         }
         
-        // should send to peer(s)
-        notDone!;
     }
 
     getTeamOfPlayer(plr) {
@@ -522,6 +628,7 @@ class Player extends Sprite {
     peer;
     playPosition = []; // [0, 0] is team1, first player, [0,1] is same team, second player. [1,0] is second team first player, etc...
     state = PlayerState.Idle;
+    lastServed = Date.now();
     constructor(position, peer) {
         super(position, 32, 32, 6);
         this.peer = peer;
@@ -531,6 +638,9 @@ class Player extends Sprite {
     }
 
     changeState(newState) {
+        if (newState == PlayerState.AboutToServe && this.state != PlayerState.AboutToServe) {
+            playState.aboutToServe(this);
+        }
         this.state = newState;
         // if newState == AboutToServe, move ball-position to player and lock it there (x = player.x - 5, y = player.y, z = 10 ish...) // Should have ball state too
     }
@@ -570,13 +680,14 @@ class Player extends Sprite {
             // try to hit ball, must check that it is close enough... Add target+spin etc later...
             // Will need collision detection anyway, so use general code...
             if (this.collidesWith(ball)) {
-                console.log("HIT!z", ball.position.z)
+                //console.log("HIT!z", ball.position.z)
                 keys.hit = 0;
                 ball.hit();
                 playState.hit(player);
             }
             else {
-                console.log("MISS", ball.position, this.position);
+                playState.miss(player);
+                //console.log("MISS", ball.position, this.position);
             }
         }
     }
@@ -609,7 +720,9 @@ class Ball extends Sprite {
             this.changeState(BallState.AboutToServe, this.player);
             return;
         }
-        this.player = lockOnPlayer;
+        if (lockOnPlayer) {
+            this.player = lockOnPlayer;
+        }
         // if newState == AboutToServe, lock on player in correct position...
         
     }
@@ -653,13 +766,27 @@ class Ball extends Sprite {
     }
 
     update(delta) {
-        if (ball.state == BallState.AboutToServe && player.state == PlayerState.AboutToServe) {
+        /*if (ball.state == BallState.AboutToServe && player.state == PlayerState.AboutToServe) {
             // ball should be "locked" on to position of this.player 
             this.velocity.set(0,0,0);
 
             const playerPos = this.player.position;
             this.position.set(playerPos.x - 40, playerPos.y+10, 10); // prolly needs refining, but...
             //console.log("ballPos", this.position)
+        }*/
+        if (ball.state == BallState.AboutToServe && this.player?.state == PlayerState.AboutToServe) {
+            // ball should be "locked" on to position of this.player 
+            this.velocity.set(0,0,0);
+
+            const playerPos = this.player.position;
+            if (this.player.playPosition[0] == player.playPosition[0]) {
+                // our team
+                this.position.set(playerPos.x - 40, playerPos.y+10, 10); // prolly needs refining, but...
+            }
+            else {
+                // other side
+                this.position.set(playerPos.x + 40, playerPos.y-10, 10); // prolly needs refining, but...
+            }
         }
         else if (ball.state == BallState.InPlay) {
 
@@ -702,12 +829,23 @@ class Ball extends Sprite {
                     this.velocity.y = 0;
                 }
                 this.position.z = 0;
+                if (weAreServer) {
+                    playState.ballBounce();
+                }
             }
             if (this.position.z == 0 && this.velocity.z == 0) {
                 ball.changeState(BallState.AtRest);
             }
-            if (this.position.y > 580 || this.position.y < -580) {
-                ball.changeState(BallState.OutOfBounds);
+            if (this.position.y > 650 || this.position.y < -650) {
+                //ball.changeState(BallState.OutOfBounds);
+                if (weAreServer) {
+                    playState.ballOutOfBounds();
+                }
+            }
+            if (this.position.z > 1000) {
+                if (weAreServer) {
+                    playState.ballOutOfBounds();
+                }
             }
         }
         else if (ball.state == BallState.OutOfBounds) {
@@ -834,7 +972,7 @@ class Ball extends Sprite {
         target.z = 0;
 
         // ignore click below net for now.
-        console.log("target", target)
+        //console.log("target", target)
 
         // make sure target is within bounds? skip for now
 
@@ -842,7 +980,7 @@ class Ball extends Sprite {
         // calc distance for x and y
         const xDist = target.x - ball.position.x;
         const yDist = target.y - ball.position.y;
-        console.log("x,y dist", xDist, yDist)
+        //console.log("x,y dist", xDist, yDist)
         /*const netHeight = 80; // guess
         let velocityZ = -5; //?? guess
         ball.velocity.x = xDist / 6;
@@ -868,7 +1006,7 @@ class Ball extends Sprite {
         
         // first, calculate distance directly to target (actual distance)
         const actualDist = Math.sqrt(xDist*xDist + yDist*yDist);
-        console.log("actualDist", actualDist)
+        //console.log("actualDist", actualDist)
         // new coord-system, parallell to dist
         const nSource = new Vertex(0, ball.position.z);
         const nTarget = new Vertex(actualDist, 0);
@@ -876,13 +1014,13 @@ class Ball extends Sprite {
         const nAngle = Math.atan2(xDist, yDist);
         const yDistToNet = 0 - ball.position.y;
         const xDistToNet = yDistToNet * Math.tan(nAngle);
-        console.log("xDistToNet", xDistToNet, nAngle)
+        //console.log("xDistToNet", xDistToNet, nAngle)
         const nDistToNet = Math.sqrt(xDistToNet*xDistToNet + yDistToNet*yDistToNet);
         const nBarrier = new Vertex(nDistToNet, netHeight);
         const gravity = .5; // from ball.update calc...
-        console.log("source, trarget, barrier", nSource, nTarget, nBarrier)
+        //console.log("source, trarget, barrier", nSource, nTarget, nBarrier)
         const nVelocities = this.calculateInitialVelocities(gravity, nSource, nTarget, nBarrier);
-        console.log("calculated nVelocities", nVelocities)
+        //console.log("calculated nVelocities", nVelocities)
         // nVelocities.x is x/y velocities (need to calc them from nVelocities.x)
         // nVelocities.y = z velocity
         nVelocities.x *= 2;
@@ -893,7 +1031,7 @@ class Ball extends Sprite {
 
         // Nowhere near perfect, but sick and tired of it...
 
-        console.log("ball.vel", ball.velocity)
+        //console.log("ball.vel", ball.velocity)
 
         // if we are not server, need to tell server that we hit the ball!! and tell server velocities and stuff...
         if (!weAreServer) {
@@ -1179,8 +1317,8 @@ export function onMessage(peer, data) {
     // THIS NEEDS TO BE CHANGED! (need which players position, and should also have ball position (and velocities?))
     //opponent.position.x = -data.x;
     //opponent.position.y = -data.y;
-
-    getNewPositions(peer, data);
+    
+    getNewState(peer, data);
 };
 
 export function initialize() {
@@ -1232,10 +1370,10 @@ function initializeState() {
         plr.changeState(PlayerState.Idle);
     }
     // first player in players should serve first...
-    players[0].changeState(PlayerState.AboutToServe);
-    ball.changeState(BallState.AboutToServe, players[0]);
-    console.log("player Serving:", players[0].peer.nick)
-    console.log("players", players)
+    if (weAreServer) {
+        players[0].changeState(PlayerState.AboutToServe);
+        ball.changeState(BallState.AboutToServe, players[0]);
+    }
 }
 
 function createEntities() {
@@ -1468,7 +1606,7 @@ function clicked(event) {
     // need to do a hit (unless we are in aboutToServe-mode)
     // if hit-> translate event.clientX/Y to world coords (z = 0), always on other side of net (y > 80 or so?), and prolly inside bounds?
     // calculate velocities to reach that target... give em to the ball...
-    touchDiv.innerHTML =  touchDiv.innerHTML + ". Clicked";
+    //touchDiv.innerHTML =  touchDiv.innerHTML + ". Clicked";
     keys.clickedX = event.clientX;
     keys.clickedY = event.clientY;
     keys.hit = 10;
@@ -1511,11 +1649,13 @@ function loadOpponentImages() {
 }*/
 
 function movePlayer(delta) {
+    let moved = false;
     if (keys.down) {
         player.position.y -= .5 * delta * keys.movementSpeedY;
         if (player.position.y < -450) {
             player.position.y = -450;
         }
+        moved = true;
     }
     else if (keys.up) {
         player.position.y += .5 * delta * keys.movementSpeedY;
@@ -1525,18 +1665,24 @@ function movePlayer(delta) {
         if (player.position.y > -10) {
             player.position.y = -10;
         }
+        moved = true;
     }
     if (keys.left) {
         player.position.x -= .6 * delta * keys.movementSpeedX;
         if (player.position.x < -580) {
             player.position.x = -580;
         }
+        moved = true;
     }
     else if (keys.right) {
         player.position.x += .6 * delta * keys.movementSpeedX;
         if (player.position.x > 580) {
             player.position.x = 580;
         }
+        moved = true;
+    }
+    if (moved) {
+        playState.playerMoved(player);
     }
     //console.log("player pos", player.position);
 
@@ -1574,8 +1720,26 @@ function movePlayer(delta) {
     // need checks, so dont move more up than net, not below screen, and not outside court?
 }
 
-function getNewPositions(peer, data) {
-    if (data.players) {
+function findPlayerByNick(plrNick) {
+    for (const plr of players) {
+        if (plr.peer?.nick == plrNick) {
+            return plr;
+        }
+    }
+    return null;
+}
+
+function findPlayPositionOfPeer(peer) {
+    for (const plr of players) {
+        if (plr.peer?.nick == peer.nick) {
+            return plr.playPosition;
+        }
+    }
+    return null;
+}
+
+function getNewState(peer, data) {
+    /*if (data.players) {
         // update from server
         for (let i = 0; i < players.length; i++) {
             if (players[i].peer.nick == nick) {
@@ -1632,32 +1796,147 @@ function getNewPositions(peer, data) {
                 }
             }
         }
+    }*/
+    if (!peer.packageId || data.id > peer.packageId) { // make sure its a new package
+        peer.packageId = data.id;
+
+        const change = data.changedState;
+        //console.log("change", change, data.id)
+        
+        // {playerMoved: nick, pos}, {aboutToServe: nick}, {serving: nick, ball:{pos, vel}}, {hit: nick, ball:{pos, vel}}, {score: [1,0]}
+        if (change.playerMoved) {
+            // {playerMoved: nick, pos}
+            const plr = findPlayerByNick(change.playerMoved);
+            const peerPlayPos = findPlayPositionOfPeer(peer);
+            
+            if (plr != player) {
+                const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
+                console.log("move to ", change.pos, sameTeamAsUs, plr)
+                plr.updatePos(sameTeamAsUs, change.pos);
+                if (weAreServer) {
+                    // tell others about it...
+                    playState.playerMoved(plr);
+                }
+            }
+        }
+        if (change.aboutToServe) {
+            // {aboutToServe: nick}
+            const plr = findPlayerByNick(change.aboutToServe);
+
+            playState.lastPlayerToServe = plr;
+            
+            // make sure other players are set to idle
+            for (const p of players) {
+                if (p != plr) {
+                    p.changeState(PlayerState.Idle);
+                }
+            }
+            
+            if (plr.state != PlayerState.AboutToServe) {
+                plr.changeState(PlayerState.AboutToServe);
+                ball.changeState(BallState.AboutToServe, plr);
+                /*if (plr != player && weAreServer) {
+                    playState.aboutToServe(plr);
+                }*/
+            }
+        }
+        if (change.serving) {
+            //{serving: nick, ball:{pos, vel}}
+            const plr = findPlayerByNick(change.serving);
+            playState.lastPlayerToServe = playState.lastPlayerToHitBall = plr;
+
+            // make sure other players are set to idle
+            for (const p of players) {
+                if (p != plr) {
+                    p.changeState(PlayerState.Idle);
+                }
+            }
+
+            if (plr != player && plr.state != PlayerState.Idle) {
+                plr.changeState(PlayerState.Idle);
+                const peerPlayPos = findPlayPositionOfPeer(peer);
+                const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
+                ball.changeState(BallState.InPlay);
+                ball.updatePos(sameTeamAsUs, change.ball.pos);
+                ball.updateVel(sameTeamAsUs, change.ball.vel);
+                if (plr != player && weAreServer) {
+                    playState.serving(plr);
+                }
+            }
+        }
+        if (change.hit) {
+            //{hit: nick, ball:{pos, vel}}
+            const plr = findPlayerByNick(change.hit);
+            playState.lastPlayerToHitBall = plr;
+
+            // make sure all players are set to idle
+            for (const p of players) {
+                p.changeState(PlayerState.Idle);
+            }
+            if (plr != player) {
+                const peerPlayPos = findPlayPositionOfPeer(peer);
+                const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
+                ball.changeState(BallState.InPlay);
+                ball.updatePos(sameTeamAsUs, change.ball.pos);
+                ball.updateVel(sameTeamAsUs, change.ball.vel);
+                if (plr != player && weAreServer) {
+                    playState.hit(plr);
+                }
+            }
+        }
+        if (change.score) {
+            //{score: [1,0]}
+            // only server updates this...
+            playState.scores = change.score;
+        }
+
     }
+    
 }
 
-function sendNewPosition() {
-    if (weAreServer) {
-        // send current state
-        //NOTDONE! //Should only send ball data on changes to velocity (ball hit or reset etc.. dont send back to player who initially sent, either...)
-        const state = {serverPosition: player.playPosition, players: [], ball: {state: ball.state, pos: ball.position}};
-        for (const plr of players) {
-            state.players.push({pos: plr.position/*, state: xxx*/}); // assume fixed players-arrays, so all have same player in [0], etc..
-        }
+let packageId = 1;
+function sendNewState() {
+    if (Object.keys(playState.changedState).length > 0) {
+        const state = {changedState: playState.changedState, id: packageId};
         const toSend = JSON.stringify(state);
-        peers.forEach(p => {
-            p.channel.send(toSend);
-        });
-    }
-    else {
-        // just send ourselves (+ ball on hit)
-        const ballData = {};
-        if (ball.hitByUs) {
-            ball.hitByUs = false;
-            ballData.hit = true;
-            ballData.pos = ball.position;
-            ballData.vel = ball.velocity;
+        if (weAreServer) {
+            // send current state
+            //Should only send ball data on changes to velocity (ball hit or reset etc.. dont send back to player who initially sent, either...)
+            // send playState.changedState if not empty
+            //const state = {serverPosition: player.playPosition, players: [], ball: {state: ball.state, pos: ball.position}};
+            /*for (const plr of players) {
+
+                state.players.push({pos: plr.position}); // assume fixed players-arrays, so all have same player in [0], etc..
+            }*/
+            // {playerMoved: nick, pos}, {aboutToServe: nick}, {serving: nick, ball:{pos, vel}}, {hit: nick, ball:{pos, vel}}, {score: [1,0]}
+            peers.forEach(p => {
+                if (state.changedState.playerMoved == p.nick
+                        || state.changedState.serving == p.nick
+                        || state.changedState.hit == p.nick) {
+                    // is same player, no need to send to them...
+                }
+                else {
+                    p.channel.send(toSend);
+                    p.channel.send(toSend); // send twice for redundancy... :-) recipient should throw away duplicate packages (by id)
+                }
+            });
         }
-        peers[0].channel.send(JSON.stringify({player: {/*playPosition: player.playPosition,*/ pos: player.position}, ball: ballData/*, (serving/hitting/etc..) */}));
+        else {
+            // just send ourselves (+ ball on hit)
+            /*notDone!; // send playState.changedState if not empty
+            const ballData = {};
+            if (ball.hitByUs) {
+                ball.hitByUs = false;
+                ballData.hit = true;
+                ballData.pos = ball.position;
+                ballData.vel = ball.velocity;
+            }
+            peers[0].channel.send(JSON.stringify({player: { pos: player.position}, ball: ballData, (serving/hitting/etc..) }));*/
+            peers[0].channel.send(toSend);
+            peers[0].channel.send(toSend); // send twice for redundancy... :-) recipient should throw away duplicate packages (by id)
+        }
+        packageId++;
+        playState.changedState = {};
     }
     /*// change! server sends all positions to everyone, non-server sends their own position to server (need to send ball position from server, and prolly from non-server on ball-hit)
     if (opponent.peer?.channel) {

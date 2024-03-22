@@ -129,6 +129,9 @@ if (nick != null && typeof(nick) != "undefined") {
     document.getElementById("labelNick").innerHTML = nick;
     goToChooseRoomStep();
 }
+else {
+    goToNickStep();
+}
 
 const thisPeer = {us: true, nick: nick};
 
@@ -327,8 +330,6 @@ function goToRoomStep() {
     // show games...
     renderGames();
     
-
-    // commented out for now... noisy
     Comms.startComms(roomId, nick);
 }
 
@@ -659,7 +660,9 @@ export function lockInGame(event) {
 // fetch roomId from hash if have...
 if (window.location.hash != null && window.location.hash != "") {
     roomId = window.location.hash.substring(1); // remove leading hash (#)
-    goToRoomStep();
+    if (nick) {
+        goToRoomStep();
+    }
 }
 
 export function changeNick(event) {
@@ -670,7 +673,12 @@ export function changeNick(event) {
     //Comms.changedNick(nick);
     document.getElementById("labelNick").innerHTML = nick;
     thisPeer.nick = nick;
-    goToChooseRoomStep();
+    if (roomId) {
+        goToRoomStep();
+    }
+    else {
+        goToChooseRoomStep();
+    }
     return false;
 }
 
@@ -704,16 +712,6 @@ export function joinRoom() {
     // show options for joining room (input roomid, scan qr-code)
     hideForms();
     document.getElementById("joinRoomForm").style.display = "";
-
-    //NOTDONE!
-
-    /*roomId = "testRoomId";
-    window.location.hash = roomId;
-    console.log("joinRomm!");
-
-    //goToRoomStep();
-
-    Comms.startComms(roomId, nick);*/
 }
 
 export function joinRoomByCode() {

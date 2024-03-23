@@ -3,7 +3,7 @@
         <!--<script src="script.js" type="module"></script>-->
         <meta charset="utf-8" />
 	    <meta name="viewport" content="width=device-width,initial-scale=1">
-        <link rel="stylesheet" href="index.css?12" type="text/css">
+        <link rel="stylesheet" href="index.css?13" type="text/css">
     </head>
     <body style="height:100vh">
         <!--Spør om userid (lagre i cookie og etterhvert pwa localstorage), la bruker opprette rom eller joine... redirect til url som har med romid, så reloads ikke ødelegger-->
@@ -39,7 +39,7 @@
             <label>Room id: <h1 id="roomId" class="roomId"></h1></label>
             <button id="leaveRoom">Leave</button><br><br>
             <!--<div id="roomIdQR"></div>-->
-            <label>Other players can open site and input room id, or just scan qr-code and join directly22</label>
+            <label>Other players can open site and input room id, or just scan qr-code and join directly23</label>
             <img id="roomIdQR" class="qrImage">
             <button id="showQr" style="display: none;">Show QR code</button>
             <!-- Show peers connected -->
@@ -81,7 +81,7 @@
         </div>
         <div id="mainDiv" style="display:none"></div>
         <script type="module">
-            import {changeNick, createRoom, joinRoom, joinRoomByCode, leaveRoom, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?22';
+            import {changeNick, createRoom, joinRoom, joinRoomByCode, leaveRoom, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?23';
 
             document.getElementById("nickForm").addEventListener('submit', changeNick);
             document.getElementById("createRoom").addEventListener('click', createRoom);

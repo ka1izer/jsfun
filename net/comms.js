@@ -256,6 +256,7 @@ export function disconnect() {
     //connections = [];
     //channels = [];
     peers = [];
+    startedComms = false;
 }
 
 let forceServer = false;
@@ -415,10 +416,12 @@ async function newPeerConnection(peer, polite) {
                     return false;
                 });
                 
-                // should now generate new localId and try to restart connection...
+                // should now generate new localId and try to restart connection... if we did not disconnect on purpose...
                 Signaler.generateLocalId();
-                Signaler.lostServer(roomId);
-                startComms(roomId);
+                if (startedComms) {
+                    Signaler.lostServer(roomId);
+                    startComms(roomId);
+                }
             }
         };
     }

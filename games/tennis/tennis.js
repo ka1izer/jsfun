@@ -391,7 +391,7 @@ class Sprite extends Entity { // sprites: players, possibly ball,...? Rackets?
 
         // plasser mesh der den skal være i verden (translate ut fra position)
         //console.log("world position", this.position)
-        let v = this.moveToWorldCoordinate(this.position);
+        let v = this.moveToWorldCoordinate(this.position); // This seems to be totally wrong, but will probably break things if we change now... :-/
         //console.log("afterwolrd", v)
         //if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl worlv", v)
         
@@ -419,7 +419,7 @@ class Sprite extends Entity { // sprites: players, possibly ball,...? Rackets?
         const scaleFactorX = this.width*this.scale;
         const scaleFactorY = this.height*this.scale;
         ctx.drawImage(img.img, 0+(this.width*img.step), 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy, p.z * scaleFactorX, -p.z * scaleFactorY);
-        ctx.strokeText("0", p.x+dx, -p.y+dy);
+        //ctx.strokeText("0", p.x+dx, -p.y+dy);
         if (img.maxSteps == img.step) {
             img.step = 0;
         }
@@ -559,19 +559,15 @@ class PlayState {
     ballOutOfBounds() {
         // only called by server
         if (this.attemptsToServe > 0) {
-            // was from serve... failed
+            // was from serve...
             this.ballBounces = 0;
-            this.attemptsToServe++;
-            if (this.attemptsToServe > 2) {
-                this.attemptsToServe = 0;
-                this.serves++;
-                const team = this.getTeamOfPlayer(this.lastPlayerToHitBall);
-                this.scores[team == 0? 1 : 0]++;
-                this.changedState.score = this.scores;
-            }
+            this.attemptsToServe = 0;
+            this.serves++;
+            const team = this.getTeamOfPlayer(this.lastPlayerToHitBall);
+            this.scores[team]++;
+            this.changedState.score = this.scores;
         }
         else {
-            this.attemptsToServe = 0;
             this.serves++;
             let team;
             if (this.ballBounces > 0) {
@@ -702,6 +698,9 @@ class Ball extends Sprite {
         idle: {
             img: null, maxSteps: 0, step: 0,
         },
+        shadow: {
+            img: null, maxSteps: 0, step: 0,
+        },
     }
     constructor(position) {
         super(position, 32, 32, 3);
@@ -739,11 +738,66 @@ class Ball extends Sprite {
         this.images.idle.maxSteps = 17;
         this.images.idle.step = 0;
 
-        return promise;
+        const shadow = new Image();
+        shadow.src = "./games/tennis/ball_shadow.png";
+        const promise2 = new Promise(resolve => {
+            shadow.onload = () => resolve();
+            shadow.onerror = () => resolve();
+        });
+
+        this.images.shadow.img = shadow;
+        this.images.shadow.maxSteps = 1;
+        this.images.shadow.step = 0;
+
+        return Promise.all([promise, promise2]);
     }
 
     getImages() {
         return this.images.idle;
+    }
+
+    draw(ctx, arrDrawOps, dx, dy) {
+        // draw ball
+        super.draw(ctx, arrDrawOps, dx, dy);
+
+        // draw shadow
+        let shadowPos = new Vertex(this.position.x, this.position.y, -this.position.z);
+        //let v = shadowPos;
+        let v = this.moveToWorldCoordinate(shadowPos);
+        //console.log("afterwolrd", v)
+        //if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl worlv", v)
+        
+        // så, gjør om fra world til camera...
+        v = camera.toView(v);
+        //if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl camv", v)
+
+        // project
+        //let p = this.project(face[0]);
+        let p = this.project(v);
+        //if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl projectv", p)
+
+        //console.log("player coords", p.x+dx, p.y+dy)
+        arrDrawOps.push({z:p.z, draw: () => {
+
+            //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
+            // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
+            //this.drawImage(ctx, dx, dy, p);
+
+            ctx.save();
+            // alpha closer to 1 the closer ball.position.z is to 0 (up to max 0.5?).
+            if (ball.position.z > 800) {
+                ctx.globalAlpha = 0.01;
+            }
+            else {
+                ctx.globalAlpha = 0.5*(800-ball.position.z)/1600;
+            }
+            const shadow = this.images.shadow.img;
+            const scaleFactorX = 64*this.scale/(15 * ctx.globalAlpha);
+            const scaleFactorY = 37*this.scale/(15 * ctx.globalAlpha);
+            ctx.drawImage(shadow, 0, 0, 64, 37, p.x+dx - p.z*scaleFactorX/2, -p.y+dy + p.z*scaleFactorY/2, p.z*scaleFactorX, -p.z*scaleFactorY);
+
+            ctx.restore(); // restore default alpha
+        }});
     }
 
     drawImage(ctx, dx, dy, p) {
@@ -762,7 +816,6 @@ class Ball extends Sprite {
         else {
             //img.step++;
         }
-        //console.log("ball", ball.position)
     }
 
     update(delta) {
@@ -843,9 +896,8 @@ class Ball extends Sprite {
                 }
             }
             if (this.position.z > 1000) {
-                if (weAreServer) {
-                    playState.ballOutOfBounds();
-                }
+                this.position.z = 1000;
+                this.velocity.z = 0;
             }
         }
         else if (ball.state == BallState.OutOfBounds) {
@@ -874,7 +926,7 @@ class Ball extends Sprite {
 
     serve() {
         // throw ball in the air...
-        this.velocity.z = -Math.random() * 50 - 10;
+        this.velocity.z = -Math.random() * 20 - 40;
         // should also add some random x and y axis velocity here (small ones)...
     }
 

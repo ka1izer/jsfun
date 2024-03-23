@@ -178,6 +178,10 @@ function onLoosePeer(peer) {
         return false;
     });
     if (!gameStarted) {
+        for (const game of games) {
+            game.remove(peer);
+        }
+        renderGames();
         renderPeers();
         if (weAreServer) {
             for (const peer of peers) {
@@ -195,6 +199,7 @@ function onMessage(peer, data) {
         if (data.nick) {
             peer.nick = data.nick;
             renderPeers();
+            renderGames();
         }
         if (data.choseGame) {
             const game = findGameById(data.choseGame);
@@ -620,7 +625,13 @@ export function joinRoomByCode() {
 }
 
 export function leaveRoom() {
+    window.location.hash = "";
     Comms.disconnect();
+    Comms.resetComms();
+    lockedGame = false;
+    peers = [];
+    peersOtherThanServer = [];
+    weAreServer = true;
     goToChooseRoomStep();
 }
 

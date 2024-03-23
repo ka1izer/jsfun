@@ -73,6 +73,14 @@
     margin-bottom: 5px;
 }
 
+.peer {
+    position: relative; /*just to have something here, to avoid IDE complaining about empty rule*/
+}
+
+.peer.turn {
+    color: red;
+}
+
 .game {
     cursor: pointer;
     font-weight: bold;

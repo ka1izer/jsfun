@@ -121,8 +121,24 @@ let stopServing = false;
 
 let ourNick = null;
 
+let startedComms = false;
+export function isCommsStarted() {
+    return startedComms;
+}
+
+export function resetComms() {
+    cntPeers = 0;
+    peers = [];
+    ourNick = null;
+    stopServing = false;
+    roomId = null;
+    forceServer = false;
+    forceClient = false;
+}
+
 export async function startComms(room, nick) {
 
+    startedComms = true;
     roomId = room;
     if (!ourNick) {
         ourNick = nick;
@@ -245,6 +261,14 @@ export function disconnect() {
 let forceServer = false;
 let forceClient = false;
 
+export function newNick(newNick) {
+    ourNick = newNick;
+
+    for (const peer of peers) {
+        peer.channel.send(JSON.stringify({lobby:true, nick: ourNick}));
+    }
+}
+
 export function becomeServer() {
     // take over as server!
     forceServer = true;
@@ -351,7 +375,10 @@ async function newPeerConnection(peer, polite) {
                     // peer sends nick
                     p.nick = data.nick;
                     // send our nick back
-                    onNewPeer(p, false);
+                    if (!data.lobby) {
+                        // new peer?
+                        onNewPeer(p, false);
+                    }
                     //console.log("seindfinfn back", ourNick, JSON.stringify({nick: ourNick}))
                     channel.send(JSON.stringify({nick: ourNick}));
                 }

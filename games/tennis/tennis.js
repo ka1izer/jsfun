@@ -714,7 +714,7 @@ class Ball extends Sprite {
         this.state = newState;
         // TEMP
         if (newState == BallState.AtRest || newState == BallState.OutOfBounds) {
-            console.log("ball at rest!")
+            //console.log("ball at rest!")
             this.player.changeState(PlayerState.AboutToServe);
             this.changeState(BallState.AboutToServe, this.player);
             return;
@@ -764,26 +764,17 @@ class Ball extends Sprite {
         let shadowPos = new Vertex(this.position.x, this.position.y, -this.position.z);
         //let v = shadowPos;
         let v = this.moveToWorldCoordinate(shadowPos);
-        //console.log("afterwolrd", v)
-        //if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl worlv", v)
-        
         // så, gjør om fra world til camera...
         v = camera.toView(v);
-        //if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl camv", v)
-
         // project
-        //let p = this.project(face[0]);
         let p = this.project(v);
-        //if (this.playPosition && (keys.left || keys.right || keys.up || keys.down) ) console.log("pl projectv", p)
-
-        //console.log("player coords", p.x+dx, p.y+dy)
         arrDrawOps.push({z:p.z, draw: () => {
 
             //drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight) sx, sy = draw from first corner of img, with sWidth, sHeight.
             // dx, dy = coordinates on canvas to place image on, dWidth, dHeight = how big to make img on canvas
             //this.drawImage(ctx, dx, dy, p);
 
-            ctx.save();
+            ctx.save(); // save context, so can restore to default alpha
             // alpha closer to 1 the closer ball.position.z is to 0 (up to max 0.5?).
             if (ball.position.z > 800) {
                 ctx.globalAlpha = 0.01;
@@ -901,7 +892,9 @@ class Ball extends Sprite {
             }
         }
         else if (ball.state == BallState.OutOfBounds) {
-            // NOTDONE!
+            if (weAreServer) {
+                playState.ballOutOfBounds();
+            }
         }
     }
 
@@ -1450,19 +1443,19 @@ function createEntities() {
         }
         if (plr.playPosition[0] == 0 && plr.playPosition[1] == 0) {
             plr.position.x = 150;
-            plr.position.y = -180;
+            plr.position.y = -250;
         }
         else if (plr.playPosition[0] == 0 && plr.playPosition[1] == 1) {
             plr.position.x = -150;
-            plr.position.y = -180;
+            plr.position.y = -250;
         }
         else if (plr.playPosition[0] == 1 && plr.playPosition[1] == 0) {
             plr.position.x = -150;
-            plr.position.y = 180;
+            plr.position.y = 250;
         }
         else if (plr.playPosition[0] == 1 && plr.playPosition[1] == 1) {
             plr.position.x = 150;
-            plr.position.y = 180;
+            plr.position.y = 250;
         }
         if (player.playPosition[0] == 1) {
             // we are on the other team, switch around...
@@ -1605,12 +1598,12 @@ function touchMove(event) {
             if (newX > keys.touchX) {
                 keys.right = true;
                 keys.left = false;
-                keys.movementSpeedX = (newX - keys.touchX)/30;
+                keys.movementSpeedX = (newX - keys.touchX)/60;
             }
             else if (newX < keys.touchX) {
                 keys.right = false;
                 keys.left = true;
-                keys.movementSpeedX = (keys.touchX - newX)/30;
+                keys.movementSpeedX = (keys.touchX - newX)/60;
             }
             else {
                 keys.right = false;
@@ -1619,12 +1612,12 @@ function touchMove(event) {
             if (newY > keys.touchY) {
                 keys.up = false;
                 keys.down = true;
-                keys.movementSpeedY = (newY - keys.touchY)/30;
+                keys.movementSpeedY = (newY - keys.touchY)/60;
             }
             else if (newY < keys.touchY) {
                 keys.up = true;
                 keys.down = false;
-                keys.movementSpeedY = (keys.touchY - newY)/30;
+                keys.movementSpeedY = (keys.touchY - newY)/60;
             }
             else {
                 keys.up = false;
@@ -1714,8 +1707,15 @@ function movePlayer(delta) {
         /*if (player.position.y > 210) {
             player.position.y = 210;
         }*/
-        if (player.position.y > -10) {
-            player.position.y = -10;
+        if (player.state == PlayerState.AboutToServe) {
+            if (player.position.y > -250) {
+                player.position.y = -250;
+            }
+        }
+        else {
+            if (player.position.y > -10) {
+                player.position.y = -10;
+            }
         }
         moved = true;
     }
@@ -1863,7 +1863,7 @@ function getNewState(peer, data) {
             
             if (plr != player) {
                 const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
-                console.log("move to ", change.pos, sameTeamAsUs, plr)
+                //console.log("move to ", change.pos, sameTeamAsUs, plr)
                 plr.updatePos(sameTeamAsUs, change.pos);
                 if (weAreServer) {
                     // tell others about it...

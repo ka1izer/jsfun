@@ -305,6 +305,9 @@ class Entity {
             let v = this.toSize(face[0]);
 
             // plasser mesh der den skal være i verden (translate ut fra position)
+            // have a bug in the sprite moveToWorldCoordinate (shouldn't have called it for sprite, it has no vertices to move... but camera is centered on sprites, so need to have the same bug here)
+            // Same bug as for Sprite: add world coordinates twice...
+            v = this.moveToWorldCoordinate(v);
             v = this.moveToWorldCoordinate(v);
             
             // så, gjør om fra world til camera...
@@ -319,7 +322,7 @@ class Entity {
                 ctx.beginPath();
                 // draw first vertex
                 ctx.moveTo(p.x + dx, -p.y + dy);
-                ctx.strokeText("0", p.x+dx, -p.y+dy);
+                //ctx.strokeText("0", p.x+dx, -p.y+dy);
                 //ctx.lineTo(p.x + dx+5, -p.y + dy+5);
                 //console.log("draw", p.x + dx, -p.y + dy)
 
@@ -328,12 +331,15 @@ class Entity {
                     //p = this.project(face[i]);
 
                     v = this.toSize(face[i]);
+                    // have a bug in the sprite moveToWorldCoordinate (shouldn't have called it for sprite, it has no vertices to move... but camera is centered on sprites, so need to have the same bug here)
+                    // Same bug as for Sprite: add world coordinates twice...
+                    v = this.moveToWorldCoordinate(v);
                     v = this.moveToWorldCoordinate(v);
 
                     v = camera.toView(v);
                     p = this.project(v);
                     ctx.lineTo(p.x + dx, -p.y + dy);
-                    ctx.strokeText(""+i, p.x+dx, -p.y+dy);
+                    //ctx.strokeText(""+i, p.x+dx, -p.y+dy);
                     //console.log("draw2", p.x + dx, -p.y + dy)
                 }
 
@@ -627,12 +633,14 @@ class Player extends Sprite {
     playPosition = []; // [0, 0] is team1, first player, [0,1] is same team, second player. [1,0] is second team first player, etc...
     state = PlayerState.Idle;
     lastServed = Date.now();
+    bat = new Bat();
     constructor(position, peer) {
         super(position, 32, 32, 6);
         this.peer = peer;
         const playerWidth = 50;
         const playerHeight = 130;
         this.boundingRect = new BoundingRectangle(new Vertex(0, 0, playerHeight/2), null, playerWidth, playerHeight);
+        this.bat = new Bat(this);
     }
 
     changeState(newState) {
@@ -641,6 +649,14 @@ class Player extends Sprite {
         }
         this.state = newState;
         // if newState == AboutToServe, move ball-position to player and lock it there (x = player.x - 5, y = player.y, z = 10 ish...) // Should have ball state too
+    }
+
+    draw(ctx, arrDrawOps, dx, dy) {
+        // draw player
+        super.draw(ctx, arrDrawOps, dx, dy);
+
+        // draw bat (commented out for now)
+        //this.bat.draw(ctx, arrDrawOps, dx, dy);
     }
 
     loadImages(url) {
@@ -674,7 +690,7 @@ class Player extends Sprite {
             playState.serving(player);
         }
         else if (this.state == PlayerState.Idle) {
-
+            this.bat.swing();
             // try to hit ball, must check that it is close enough... Add target+spin etc later...
             // Will need collision detection anyway, so use general code...
             if (this.collidesWith(ball)) {
@@ -1174,6 +1190,82 @@ class Net extends Sprite {
         const scaleFactorY = this.height*this.scale;
         ctx.drawImage(img.img, 0, 0, this.width, this.height, p.x+dx - p.z*scaleFactorX/2, -p.y+dy -(canvasHeight/45.8) + p.z*scaleFactorY/2, p.z*scaleFactorX, -p.z*scaleFactorY); // (canvasHeight/45.8) manually adjustment to make it fit the not quite symmetrical bakcground...
         
+    }
+}
+class Bat extends Entity {
+    plr = null;
+    offsetFromPlayer = new Vertex(40, 10, 80);
+    angleToBall = Math.PI/2;
+    angleOfHit = Math.PI/2;
+    constructor(plr) {
+        super(new Vertex(0,0,0));
+        if (plr?.position) {
+            this.position.set(plr.position.x + this.offsetFromPlayer.x, plr.position.y + this.offsetFromPlayer.y, plr.position.z + this.offsetFromPlayer.z);
+        }
+        this.vertices = [
+            new Vertex(-1, 1, 10),  //0
+            new Vertex(1, 1, 10),   //1
+            new Vertex(1, -1, 10),  //2
+            new Vertex(-1, -1, 10), //3
+            new Vertex(-1, 1, -10), //4
+            new Vertex(1, 1, -10),  //5
+            new Vertex(1, -1, -10), //6
+            new Vertex(-1, -1, -10),//7
+        ];
+        this.faces = [
+            [this.vertices[0], this.vertices[1], this.vertices[2], this.vertices[3]], // top
+            [this.vertices[4], this.vertices[5], this.vertices[6], this.vertices[7]], // bottom
+            [this.vertices[0], this.vertices[3], this.vertices[7], this.vertices[4]], // left side
+            [this.vertices[1], this.vertices[2], this.vertices[6], this.vertices[5]], // right side
+            [this.vertices[3], this.vertices[2], this.vertices[6], this.vertices[7]], // near side
+            [this.vertices[1], this.vertices[0], this.vertices[4], this.vertices[5]], // far side
+        ]
+        this.size = 20;
+        this.plr = plr;
+    }
+
+    draw(ctx, arrDrawOps, dx, dy) {
+
+        if (this.plr) {
+            if (this.plr.playPosition[0] == player.playPosition[0]) {
+                this.position.set(this.plr.position.x + this.offsetFromPlayer.x, this.plr.position.y + this.offsetFromPlayer.y, this.plr.position.z + this.offsetFromPlayer.z);
+            }
+            else {
+                this.position.set(this.plr.position.x - this.offsetFromPlayer.x, this.plr.position.y - this.offsetFromPlayer.y, this.plr.position.z + this.offsetFromPlayer.z);
+            }
+        }
+        this.rotate();
+        const playerIndex = arrDrawOps.length-1;
+        const playerZ = arrDrawOps[playerIndex].z;
+        super.draw(ctx, arrDrawOps, dx, dy);
+        // make sure bat is drawn in front of player: (HACKY AS F...)
+        let adjustBy = 0.05;
+        if (this.plr.playPosition[0] != player.playPosition[0]) {
+            adjustBy = -adjustBy;
+        }
+        for (let i = playerIndex+1; i < arrDrawOps.length; i++) {
+            const drawOp = arrDrawOps[i];
+            drawOp.z-= adjustBy;
+        }
+    }
+
+    rotate() {
+        // use both angles to rotate
+
+        // first, move vertices so centered on player.position
+        // rotate
+        // move back
+        // repeat with other...
+    }
+
+    swing() {
+        // should start a swing, rotate around base of player (or bat?), with end towards ball.
+        // if start a new swing, abort old and start new...
+        // should be gradual across x amount of frames (try...)
+        // angleOfBall should be "pointing at" ball
+        // angleOfHit should be "animated" through hit (from pi/2 (or maybe back from 2PI/3) to 11PI/6 or so )
+
+
     }
 }
 // court (for å justere plassering i forhold til bakgrunn)

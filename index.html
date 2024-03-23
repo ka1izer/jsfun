@@ -3,7 +3,7 @@
         <!--<script src="script.js" type="module"></script>-->
         <meta charset="utf-8" />
 	    <meta name="viewport" content="width=device-width,initial-scale=1">
-        <link rel="stylesheet" href="index.css?11" type="text/css">
+        <link rel="stylesheet" href="index.css?12" type="text/css">
     </head>
     <body style="height:100vh">
         <!--Spør om userid (lagre i cookie og etterhvert pwa localstorage), la bruker opprette rom eller joine... redirect til url som har med romid, så reloads ikke ødelegger-->
@@ -37,8 +37,9 @@
         <!-- More than 2 players? Could have up to 4? (3 would have to be a bit special, asymmetric, 2 against 1 (the 2 would need to hit smaller court, maybe other handicaps (speed?))) -->
         <form id="roomForm" style="display:none" class="form form-top" >
             <label>Room id: <h1 id="roomId" class="roomId"></h1></label>
+            <button id="leaveRoom">Leave</button><br><br>
             <!--<div id="roomIdQR"></div>-->
-            <label>Other players can open site and input room id, or just scan qr-code and join directly21</label>
+            <label>Other players can open site and input room id, or just scan qr-code and join directly22</label>
             <img id="roomIdQR" class="qrImage">
             <button id="showQr" style="display: none;">Show QR code</button>
             <!-- Show peers connected -->
@@ -80,11 +81,12 @@
         </div>
         <div id="mainDiv" style="display:none"></div>
         <script type="module">
-            import {changeNick, createRoom, joinRoom, joinRoomByCode, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?21';
+            import {changeNick, createRoom, joinRoom, joinRoomByCode, leaveRoom, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?22';
 
             document.getElementById("nickForm").addEventListener('submit', changeNick);
             document.getElementById("createRoom").addEventListener('click', createRoom);
             document.getElementById("joinRoom").addEventListener('click', joinRoom);
+            document.getElementById("leaveRoom").addEventListener('click', leaveRoom);
             //document.getElementById("disconnect").addEventListener('click', disconnect);
             //document.getElementById("becomeServer").addEventListener('click', becomeServer);
             document.getElementById("labelNick").addEventListener("click", goToNickStep);

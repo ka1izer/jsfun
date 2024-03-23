@@ -3,6 +3,10 @@
 import * as Comms from './net/comms.js';
 import QrCode from './libs/qrcode.mjs';
 import QrScanner from './libs/qr-scanner.min.js';
+import { customAlphabet } from './libs/nanoid_unsecure.js';
+
+const alphabet = '346789abcdefghijkmnpqrtwxyz_-';
+const nanoid = customAlphabet(alphabet, 6);
 
 class Game {
     id = "";
@@ -259,7 +263,6 @@ function setOnMessage(func) {
 
 async function renderConnectionQual(peer) {
     const stats = await peer.connection.getStats();
-    console.log("stast", stats)
     let selectedLocalCandidate;
     for (const {type, state, localCandidateId} of stats.values()) {
         if (type === 'candidate-pair' && state === 'succeeded' && localCandidateId) {
@@ -267,6 +270,7 @@ async function renderConnectionQual(peer) {
             break;
         }
     }
+    // This seems to return turn only on the actual client that uses turn (relay), not for the other peer. So that client will see it's peer in red (or whatever visualization), but the other client won't see this peer like that... strange?
     const usesTurn = !!selectedLocalCandidate && stats.get(selectedLocalCandidate)?.candidateType === 'relay';
     peer.usesTurn = usesTurn;
     renderPeers();
@@ -571,12 +575,13 @@ export function changeNick(event) {
 
 function generateRoomId() {
     // https://github.com/ai/nanoid
-    // NOTDONE!
+    return nanoid() //=> "l8y8vj"
 }
 
 export function createRoom() {
     //roomId = self.crypto.randomUUID();
-    roomId = "testRoomId";
+    //roomId = "testRoomId";
+    roomId = generateRoomId();
     window.location.hash = roomId;
     // Bør vel sette noe ala ?main=true eller noe, og starte fra load, ikke direkte herfra...
     // Da vil denne være "server", selv om reloader by accident... Om trykker back og joiner room, så må det bli ny "server"... Sett ?main=true på den som blir server, og passe på at andre ikke har det satt?
@@ -608,10 +613,15 @@ export function joinRoomByCode() {
         return;
     }
     // should prolly test to see if room id exists before trying to join? or just go for it?
-    roomId = roomCode;
+    roomId = roomCode.toLowerCase(); // We know that we only use lowercase in key, so force lowercase to avoid miss because of caps lock or whatever...
     window.location.hash = roomId;
 
     goToRoomStep();
+}
+
+export function leaveRoom() {
+    Comms.disconnect();
+    goToChooseRoomStep();
 }
 
 let scanning = false;

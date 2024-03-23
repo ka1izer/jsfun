@@ -552,6 +552,7 @@ class PlayState {
                 // lastPlayerToServe should ready next serve...
                 ball.changeState(BallState.AboutToServe);
                 this.changedState.aboutToServe = this.lastPlayerToServe.peer.nick;
+                this.lastPlayerToServe.changeState(PlayerState.AboutToServe);
             }
         }
         
@@ -611,6 +612,7 @@ class PlayState {
             // lastPlayerToServe should ready next serve...
             ball.changeState(BallState.AboutToServe);
             this.changedState.aboutToServe = this.lastPlayerToServe.peer.nick;
+            this.lastPlayerToServe.changeState(PlayerState.AboutToServe);
         }
         
     }
@@ -712,7 +714,6 @@ class Ball extends Sprite {
 
     changeState(newState, lockOnPlayer) {
         this.state = newState;
-        // TEMP
         if (newState == BallState.AtRest || newState == BallState.OutOfBounds) {
             //console.log("ball at rest!")
             this.player.changeState(PlayerState.AboutToServe);
@@ -722,8 +723,6 @@ class Ball extends Sprite {
         if (lockOnPlayer) {
             this.player = lockOnPlayer;
         }
-        // if newState == AboutToServe, lock on player in correct position...
-        
     }
 
     loadImages() {
@@ -1598,12 +1597,12 @@ function touchMove(event) {
             if (newX > keys.touchX) {
                 keys.right = true;
                 keys.left = false;
-                keys.movementSpeedX = (newX - keys.touchX)/60;
+                keys.movementSpeedX = (newX - keys.touchX)/40;
             }
             else if (newX < keys.touchX) {
                 keys.right = false;
                 keys.left = true;
-                keys.movementSpeedX = (keys.touchX - newX)/60;
+                keys.movementSpeedX = (keys.touchX - newX)/40;
             }
             else {
                 keys.right = false;
@@ -1612,12 +1611,12 @@ function touchMove(event) {
             if (newY > keys.touchY) {
                 keys.up = false;
                 keys.down = true;
-                keys.movementSpeedY = (newY - keys.touchY)/60;
+                keys.movementSpeedY = (newY - keys.touchY)/40;
             }
             else if (newY < keys.touchY) {
                 keys.up = true;
                 keys.down = false;
-                keys.movementSpeedY = (keys.touchY - newY)/60;
+                keys.movementSpeedY = (keys.touchY - newY)/40;
             }
             else {
                 keys.up = false;

@@ -1261,15 +1261,28 @@ class Bat extends Entity {
 
         // first, move vertices so centered on base
         let newV = new Vertex(vertex.x, vertex.y, vertex.z + this.vertices[0].z); // add z, so top z is 20 and bottom z is 0.
+        
         // rotate
         const tx = this.angleToBall == 0? newV.x : newV.x * Math.cos(this.angleToBall) + newV.z * Math.sin(this.angleToBall); // if horizAngle == 0, this is unneded, since it just gives x.
         let tz = this.angleToBall == 0? newV.z : newV.z * Math.cos(this.angleToBall) - newV.x * Math.sin(this.angleToBall); // if horizAngle == 0, this is unneded, since it just gives z.
-        const ty = this.angleOfHit == 0? newV.y : newV.y * Math.cos(this.angleOfHit) + tz * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives y.
-        tz = this.angleOfHit == 0? tz : tz * Math.cos(this.angleOfHit) - newV.y * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives tz.
+        
+        // cannot do both rotations in same system, the second rotation will be around wrong axis...
+        //const ty = this.angleOfHit == 0? newV.y : newV.y * Math.cos(this.angleOfHit) + tz * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives y.
+        //tz = this.angleOfHit == 0? tz : tz * Math.cos(this.angleOfHit) - newV.y * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives tz.
+        let ty = newV.y;
         // move back
         newV.set(tx, ty, tz - this.vertices[0].z);
 
-        return newV;
+        // other rotation?
+        let otherV = new Vertex(vertex.x, vertex.y, vertex.z + this.vertices[0].z); // add z, so top z is 20 and bottom z is 0.
+        const ty2 = this.angleOfHit == 0? newV.y : newV.y * Math.cos(this.angleOfHit) + newV.z * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives y.
+        const tz2 = this.angleOfHit == 0? newV.z : newV.z * Math.cos(this.angleOfHit) - newV.y * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives tz.
+        // move back
+        otherV.set(otherV.x, ty2, tz2 - this.vertices[0].z);
+
+        // add them together?
+        //DOESNOTWORK!!
+        return new Vertex(newV.x + otherV.x, newV.y + otherV.y, newV.z + otherV.z);
     }
 
     swing() {
@@ -1279,9 +1292,12 @@ class Bat extends Entity {
         // angleOfBall should be "pointing at" ball (x-z coords)
         // angleOfHit should be "animated" through hit (from pi/2 (or maybe back from 2PI/3) to 11PI/6 or so )
         //  (in y-z coords)
+        let b = this.position.x - ball.position.x;
+        let a = this.position.z + this.vertices[0].z - ball.position.z; // centered on bottom of bat
+        this.angleToBall = -(Math.atan2(a, b) + Math.PI/2); // relative to straight up
 
-    
-
+        this.angleOfHit += 0.2;
+        
     }
 }
 // court (for å justere plassering i forhold til bakgrunn)

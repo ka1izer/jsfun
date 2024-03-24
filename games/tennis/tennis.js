@@ -296,13 +296,20 @@ class Entity {
         return new Vertex(vertex.x * this.size, vertex.y * this.size, vertex.z * this.size);
     }
 
+    rotate(vertex) {
+        return vertex;
+    }
+
     draw(ctx, arrDrawOps, dx, dy) {
         // 3d draw...
 
         for (const face of this.faces) {
 
+            // do any rotation (by default none)
+            let v = this.rotate(face[0]);
+
             // size it...
-            let v = this.toSize(face[0]);
+            v = this.toSize(v);
 
             // plasser mesh der den skal være i verden (translate ut fra position)
             // have a bug in the sprite moveToWorldCoordinate (shouldn't have called it for sprite, it has no vertices to move... but camera is centered on sprites, so need to have the same bug here)
@@ -330,7 +337,8 @@ class Entity {
                 for (let i=1; i < face.length; i++) {
                     //p = this.project(face[i]);
 
-                    v = this.toSize(face[i]);
+                    v = this.rotate(face[i]);
+                    v = this.toSize(v);
                     // have a bug in the sprite moveToWorldCoordinate (shouldn't have called it for sprite, it has no vertices to move... but camera is centered on sprites, so need to have the same bug here)
                     // Same bug as for Sprite: add world coordinates twice...
                     v = this.moveToWorldCoordinate(v);
@@ -1195,8 +1203,8 @@ class Net extends Sprite {
 class Bat extends Entity {
     plr = null;
     offsetFromPlayer = new Vertex(40, 10, 80);
-    angleToBall = Math.PI/2;
-    angleOfHit = Math.PI/2;
+    angleToBall = 0;
+    angleOfHit = 0;
     constructor(plr) {
         super(new Vertex(0,0,0));
         if (plr?.position) {
@@ -1234,7 +1242,6 @@ class Bat extends Entity {
                 this.position.set(this.plr.position.x - this.offsetFromPlayer.x, this.plr.position.y - this.offsetFromPlayer.y, this.plr.position.z + this.offsetFromPlayer.z);
             }
         }
-        this.rotate();
         const playerIndex = arrDrawOps.length-1;
         const playerZ = arrDrawOps[playerIndex].z;
         super.draw(ctx, arrDrawOps, dx, dy);
@@ -1249,22 +1256,31 @@ class Bat extends Entity {
         }
     }
 
-    rotate() {
+    rotate(vertex) {
         // use both angles to rotate
 
-        // first, move vertices so centered on player.position
+        // first, move vertices so centered on base
+        let newV = new Vertex(vertex.x, vertex.y, vertex.z + this.vertices[0].z); // add z, so top z is 20 and bottom z is 0.
         // rotate
+        const tx = this.angleToBall == 0? newV.x : newV.x * Math.cos(this.angleToBall) + newV.z * Math.sin(this.angleToBall); // if horizAngle == 0, this is unneded, since it just gives x.
+        let tz = this.angleToBall == 0? newV.z : newV.z * Math.cos(this.angleToBall) - newV.x * Math.sin(this.angleToBall); // if horizAngle == 0, this is unneded, since it just gives z.
+        const ty = this.angleOfHit == 0? newV.y : newV.y * Math.cos(this.angleOfHit) + tz * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives y.
+        tz = this.angleOfHit == 0? tz : tz * Math.cos(this.angleOfHit) - newV.y * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives tz.
         // move back
-        // repeat with other...
+        newV.set(tx, ty, tz - this.vertices[0].z);
+
+        return newV;
     }
 
     swing() {
         // should start a swing, rotate around base of player (or bat?), with end towards ball.
         // if start a new swing, abort old and start new...
         // should be gradual across x amount of frames (try...)
-        // angleOfBall should be "pointing at" ball
+        // angleOfBall should be "pointing at" ball (x-z coords)
         // angleOfHit should be "animated" through hit (from pi/2 (or maybe back from 2PI/3) to 11PI/6 or so )
+        //  (in y-z coords)
 
+    
 
     }
 }

@@ -1,4 +1,5 @@
 import { MainLoop } from '../../libs/gameloop.js';
+import { Quaternion } from '../../libs/quaternion.js';
 
 // runs at the beginning of each frame and is typically used to process input
 MainLoop.setBegin( (timestamp, frameDelta) => {
@@ -664,7 +665,7 @@ class Player extends Sprite {
         super.draw(ctx, arrDrawOps, dx, dy);
 
         // draw bat (commented out for now)
-        //this.bat.draw(ctx, arrDrawOps, dx, dy);
+        this.bat.draw(ctx, arrDrawOps, dx, dy);
     }
 
     loadImages(url) {
@@ -1205,6 +1206,7 @@ class Bat extends Entity {
     offsetFromPlayer = new Vertex(40, 10, 80);
     angleToBall = 0;
     angleOfHit = 0;
+    swinging = false;
     constructor(plr) {
         super(new Vertex(0,0,0));
         if (plr?.position) {
@@ -1258,9 +1260,9 @@ class Bat extends Entity {
 
     rotate(vertex) {
         // use both angles to rotate
-
+        
         // first, move vertices so centered on base
-        let newV = new Vertex(vertex.x, vertex.y, vertex.z + this.vertices[0].z); // add z, so top z is 20 and bottom z is 0.
+        /*let newV = new Vertex(vertex.x, vertex.y, vertex.z + this.vertices[0].z); // add z, so top z is 20 and bottom z is 0.
         
         // rotate
         const tx = this.angleToBall == 0? newV.x : newV.x * Math.cos(this.angleToBall) + newV.z * Math.sin(this.angleToBall); // if horizAngle == 0, this is unneded, since it just gives x.
@@ -1275,15 +1277,66 @@ class Bat extends Entity {
 
         // other rotation?
         let otherV = new Vertex(vertex.x, vertex.y, vertex.z + this.vertices[0].z); // add z, so top z is 20 and bottom z is 0.
-        const ty2 = this.angleOfHit == 0? newV.y : newV.y * Math.cos(this.angleOfHit) + newV.z * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives y.
-        const tz2 = this.angleOfHit == 0? newV.z : newV.z * Math.cos(this.angleOfHit) - newV.y * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives tz.
+        const ty2 = this.angleOfHit == 0? otherV.y : otherV.y * Math.cos(this.angleOfHit) + otherV.z * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives y.
+        const tz2 = this.angleOfHit == 0? otherV.z : otherV.z * Math.cos(this.angleOfHit) - otherV.y * Math.sin(this.angleOfHit); // if vertAngle == 0, this is unneded, since it just gives tz.
+        
         // move back
-        otherV.set(otherV.x, ty2, tz2 - this.vertices[0].z);
+        otherV.set(otherV.x, ty2, tz2 - this.vertices[0].z);*/
 
-        // add them together?
-        //DOESNOTWORK!!
-        return new Vertex(newV.x + otherV.x, newV.y + otherV.y, newV.z + otherV.z);
+        
+        // have correct y value (just use otherV.y)
+        
+        //return new Vertex(newV.x, newV.y, newV.z);
+        //return new Vertex(otherV.x, otherV.y, otherV.z);
+
+
+        //const q = Quaternion.fromEulerLogical(this.angleToBall, this.angleOfHit, 0, 'XYZ');
+        if (this.swinging) {
+            let q;
+            const refAngle = this.angleToBall%(2*Math.PI);
+            if (Math.abs(refAngle) <= 0.1 || Math.abs(refAngle) >= 2*Math.PI-0.1) {
+                console.log("FDJSIOFJDS", this.angleToBall)
+                q = Quaternion.fromEulerLogical(0, this.angleOfHit, 0);
+            }
+            else {
+                q = Quaternion.fromEulerLogical(this.angleToBall, 0, this.angleOfHit);
+            }
+            
+            const rotatedVec = q.rotateVector([vertex.x, vertex.y, vertex.z + this.vertices[0].z]);
+            // move back
+            //this.angleOfHit += 0.1;
+        
+            if ( (refAngle > 0 && refAngle < Math.PI) || (refAngle < -Math.PI) ) {
+                // on right side
+                if (this.angleOfHit >= Math.PI/1.5) {
+                    this.swinging = false;
+                }
+                else {
+                    this.angleOfHit += 0.01;
+                }
+            }
+            else {
+                // on left side
+                if (this.angleOfHit <= -Math.PI/1.5) {
+                    this.swinging = false;
+                }
+                else {
+                    this.angleOfHit -= 0.01;
+                }
+            }
+            if (!this.swinging) {
+                this.angleOfHit = 0;
+                this.angleToBall = 0;
+            }
+            
+            return new Vertex(rotatedVec[0], rotatedVec[1], rotatedVec[2] - this.vertices[0].z);
+        }
+        else {
+            return new Vertex(vertex.x, vertex.y, vertex.z);
+        }
+        
     }
+    
 
     swing() {
         // should start a swing, rotate around base of player (or bat?), with end towards ball.
@@ -1293,10 +1346,20 @@ class Bat extends Entity {
         // angleOfHit should be "animated" through hit (from pi/2 (or maybe back from 2PI/3) to 11PI/6 or so )
         //  (in y-z coords)
         let b = this.position.x - ball.position.x;
-        let a = this.position.z + this.vertices[0].z - ball.position.z; // centered on bottom of bat
+        let a = this.position.z - (this.vertices[0].z * this.size) - ball.position.z; // centered on bottom of bat
         this.angleToBall = -(Math.atan2(a, b) + Math.PI/2); // relative to straight up
 
-        this.angleOfHit += 0.2;
+        // start by drawing bat back a bit
+        const refAngle = this.angleToBall%(2*Math.PI);
+        if ( (refAngle > 0 && refAngle < Math.PI) || (refAngle < -Math.PI) ) {
+            // on right side
+            this.angleOfHit = -0.2;
+        }
+        else {
+            // on left side
+            this.angleOfHit = 0.2;
+        }
+        this.swinging = true;
         
     }
 }
@@ -1823,13 +1886,12 @@ function movePlayer(delta) {
         if (player.position.y < -450) {
             player.position.y = -450;
         }
+        /*ball.position.z -= .5 * delta;
+        ball.position.y = -250;*/
         moved = true;
     }
     else if (keys.up) {
         player.position.y += .5 * delta * keys.movementSpeedY;
-        /*if (player.position.y > 210) {
-            player.position.y = 210;
-        }*/
         if (player.state == PlayerState.AboutToServe) {
             if (player.position.y > -250) {
                 player.position.y = -250;
@@ -1840,6 +1902,7 @@ function movePlayer(delta) {
                 player.position.y = -10;
             }
         }
+        //ball.position.z += .5 * delta;
         moved = true;
     }
     if (keys.left) {
@@ -1847,6 +1910,7 @@ function movePlayer(delta) {
         if (player.position.x < -580) {
             player.position.x = -580;
         }
+        //ball.position.x -= .5 * delta;
         moved = true;
     }
     else if (keys.right) {
@@ -1854,6 +1918,7 @@ function movePlayer(delta) {
         if (player.position.x > 580) {
             player.position.x = 580;
         }
+        //ball.position.x += .5 * delta;
         moved = true;
     }
     if (moved) {

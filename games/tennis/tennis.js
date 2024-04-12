@@ -12,7 +12,7 @@ MainLoop.setUpdate(delta => {
             keys.hit = 0;
         }
         else {
-            keys.hit -= delta * 0.1;
+            keys.hit -= delta * 10.1;
         }
         player.hit();
     }
@@ -21,6 +21,7 @@ MainLoop.setUpdate(delta => {
     }
     movePlayer(delta);
     ball.update(delta);
+    player.bat.update(delta);
 });
 // should update the screen, usually by changing the DOM or painting a canvas.
 MainLoop.setDraw(interpolationPercentage => {
@@ -66,11 +67,23 @@ MainLoop.setEnd( (fps, panic) => {
 });
 
 class Vertex {
+    /**
+     * 
+     * @param {number} x 
+     * @param {number} y 
+     * @param {number} z 
+     */
     constructor(x, y, z) {
         this.x = parseFloat(x);
         this.y = parseFloat(y);
         this.z = parseFloat(z);
     }
+    /**
+     * 
+     * @param {number} x 
+     * @param {number} y 
+     * @param {number} z 
+     */
     set(x, y, z) {
         this.x = x;
         this.y = y;
@@ -84,11 +97,20 @@ class Vertex2D {
     }
 }
 
+/**
+ * @property {number} vertAngle - "look" up/down from perspective of camera. In radians!
+ * @property {number} horizAngle - "look" left/right from perspective of camera. In radians!
+ */
 class Camera {
     vertAngle; // "look" up/down from perspective of camera. In radians!
     horizAngle; // "look" left/right from perspective of camera. In radians!
     position;
     target;
+    /**
+     * 
+     * @param {Vertex} position 
+     * @param {Vertex} target 
+     */
     constructor(position, target) {
         this.position = position;
         this.target = target;
@@ -105,6 +127,11 @@ class Camera {
         //console.log("vertAngle", this.vertAngle)
     }
 
+    /**
+     * 
+     * @param {Vertex} vertex 
+     * @returns 
+     */
     toView(vertex) {
         // first, subtract camera position
         const x = vertex.x - this.position.x;
@@ -158,6 +185,13 @@ class Camera {
 class BoundingRectangle {
     offset = new Vertex(0,0,0);
     vertices = [this.offset, this.offset, this.offset, this.offset, this.offset, this.offset, this.offset, this.offset]; // [(-x, -y, -z), (x, -y, -z), (x, y, -z), (-x, y, -z), (-x, -y, z), (x, -y, z), (x, y, z), (-x, y, z)]
+    /**
+     * 
+     * @param {Vertex} offset 
+     * @param {Array.Vertex} vertices 
+     * @param {number} width 
+     * @param {number} height 
+     */
     constructor(offset, vertices, width, height) {
         if (offset) {
             this.offset = offset;
@@ -186,33 +220,42 @@ class BoundingRectangle {
         //debugger;
         if (thisCenter.x + this.offset.x + this.vertices[0].x > otherCenter.x + otherBound.offset.x + otherBound.vertices[1].x) {
             // lower left corner of this bottom is to right of lower right corner of other, cannot collide
+            console.log("miss 1")
             return false;
         }
         if (thisCenter.y + this.offset.y + this.vertices[0].y > otherCenter.y + otherBound.offset.y + otherBound.vertices[3].y) {
             // lower left corner of this bottom is above (y-axis) upper right corner of other bottom, cannot collide
+            console.log("miss 2")
             return false;
         }
         if (thisCenter.z + this.offset.z + this.vertices[0].z > otherCenter.z + otherBound.offset.z + otherBound.vertices[4].z) {
             // lower left corner of this bottom is above (z-axis) lower left corner of other top, cannot collide
+            console.log("miss 3")
             return false;
         }
 
         if (thisCenter.x + this.offset.x + this.vertices[1].x < otherCenter.x + otherBound.offset.x + otherBound.vertices[0].x) {
             // lower right corner of this bottom is to left of lower left corner of other, cannot collide
+            console.log("miss 4")
             return false;
         }
         if (thisCenter.y + this.offset.y + this.vertices[3].y < otherCenter.y + otherBound.offset.y + otherBound.vertices[0].y) {
             // upper right corner of this bottom is below (y-axis) lower left corner of other bottom, cannot collide
+            console.log("miss 5")
             return false;
         }
         if (thisCenter.z + this.offset.z + this.vertices[4].z < otherCenter.z + otherBound.offset.z + otherBound.vertices[0].z) {
             // lower left corner of this top is below (z-axis) lower left corner of other bottom, cannot collide
+            console.log("miss 6")
             return false;
         }
         return true;
     }
 }
 // entities:
+/**
+ * @property {BoundingRectangle} boundingRect 
+ */
 class Entity {
     position = new Vertex(0,0,0);
     size = 1;
@@ -691,8 +734,10 @@ class Player extends Sprite {
     }
 
     hit() {
+        let checkForHit = true;
         if (this.state == PlayerState.AboutToServe) {
             // throw ball in the air...
+            checkForHit = false;
             ball.state = BallState.InPlay;
             this.state = PlayerState.Idle;
             ball.serve();
@@ -702,7 +747,9 @@ class Player extends Sprite {
             this.bat.swing();
             // try to hit ball, must check that it is close enough... Add target+spin etc later...
             // Will need collision detection anyway, so use general code...
-            if (this.collidesWith(ball)) {
+        }
+        /*if (checkForHit) {
+            if (this.bat.collidesWith(ball)) {
                 //console.log("HIT!z", ball.position.z)
                 keys.hit = 0;
                 ball.hit();
@@ -712,7 +759,7 @@ class Player extends Sprite {
                 playState.miss(player);
                 //console.log("MISS", ball.position, this.position);
             }
-        }
+        }*/
     }
 }
 class Ball extends Sprite {
@@ -732,7 +779,7 @@ class Ball extends Sprite {
     constructor(position) {
         super(position, 32, 32, 3);
         this.player = null;
-        const ballWidth = 80;
+        const ballWidth = 10;
         const ballHeight = ballWidth;
         this.boundingRect = new BoundingRectangle(new Vertex(0, 0, 0), null, ballWidth, ballHeight);
     }
@@ -1232,6 +1279,8 @@ class Bat extends Entity {
         ]
         this.size = 20;
         this.plr = plr;
+        //this.boundingRect = new BoundingRectangle(new Vertex(0,0,0), this.vertices.map(v => new Vertex(v.x * this.size, v.y * this.size, v.z * this.size)));
+        this.boundingRect = new BoundingRectangle(new Vertex(0,0,0), null, this.size * 10, 10 * this.size);
     }
 
     draw(ctx, arrDrawOps, dx, dy) {
@@ -1258,8 +1307,50 @@ class Bat extends Entity {
         }
     }
 
-    rotate(vertex) {
+    update(delta) {
+        if (this.swinging) {
+            if (this.collidesWith(ball)) {
+                //console.log("HIT!z", ball.position.z)
+                keys.hit = 0;
+                ball.hit();
+                playState.hit(player);
+            }
+            else {
+                playState.miss(player);
+                //console.log("MISS", ball.position, this.position);
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {Entity} entity 
+     * @returns boolean
+     */
+    collidesWith(entity) {
+
+        // need to rotate entity.position around same center as bat rotation (bottom of bat), with opposite of bat angles... can then compare as if not rotated....
+        // Need to first convert from world coordinates to entity coordinates, BUT centered on this(bat).position, so it rotates around bat's base (move from center to base is in rotate func)
+        const batCenteredEntityPos = new Vertex(entity.position.x - this.position.x, entity.position.y - this.position.y, entity.position.z - this.position.z);
+        const reverseRotatedEntityPos = this.rotate(batCenteredEntityPos, false);
+        // then, put it back on world coordinates
+        reverseRotatedEntityPos.set(reverseRotatedEntityPos.x + this.position.x, reverseRotatedEntityPos.y + this.position.y, reverseRotatedEntityPos.z + this.position.z);
+        console.log("collidesWith...", this.position, this.boundingRect, reverseRotatedEntityPos, entity.position, this.angleToBall);
+        
+        return this.boundingRect.collidesWith(this.position, reverseRotatedEntityPos, entity.boundingRect);
+    }
+
+    /**
+     * 
+     * @param {Vertex} vertex 
+     * @param {boolean} forwardRotation 
+     * @returns Vertex
+     */
+    rotate(vertex, forwardRotation) {
         // use both angles to rotate
+        if (forwardRotation == null || typeof(forwardRotation) == "undefined") {
+            forwardRotation = true;
+        }
         
         // first, move vertices so centered on base
         /*let newV = new Vertex(vertex.x, vertex.y, vertex.z + this.vertices[0].z); // add z, so top z is 20 and bottom z is 0.
@@ -1294,41 +1385,53 @@ class Bat extends Entity {
         if (this.swinging) {
             let q;
             const refAngle = this.angleToBall%(2*Math.PI);
-            if (Math.abs(refAngle) <= 0.1 || Math.abs(refAngle) >= 2*Math.PI-0.1) {
-                console.log("FDJSIOFJDS", this.angleToBall)
-                q = Quaternion.fromEulerLogical(0, this.angleOfHit, 0);
+
+            const aHit = forwardRotation? this.angleOfHit : -this.angleOfHit;
+            const aBall = forwardRotation? this.angleToBall : -this.angleToBall;
+            if (Math.abs(refAngle) <= 0.4 || Math.abs(refAngle) >= 2*Math.PI-0.4) {
+                //console.log("FDJSIOFJDS", aHit)
+                q = Quaternion.fromEulerLogical(0, aHit, 0); // hit straight forward
             }
             else {
-                q = Quaternion.fromEulerLogical(this.angleToBall, 0, this.angleOfHit);
+                q = Quaternion.fromEulerLogical(aBall, 0, aHit); // hit from side
             }
             
             const rotatedVec = q.rotateVector([vertex.x, vertex.y, vertex.z + this.vertices[0].z]);
-            // move back
-            //this.angleOfHit += 0.1;
-        
-            if ( (refAngle > 0 && refAngle < Math.PI) || (refAngle < -Math.PI) ) {
-                // on right side
-                if (this.angleOfHit >= Math.PI/1.5) {
-                    this.swinging = false;
-                }
-                else {
-                    this.angleOfHit += 0.01;
-                }
-            }
-            else {
-                // on left side
-                if (this.angleOfHit <= -Math.PI/1.5) {
-                    this.swinging = false;
-                }
-                else {
-                    this.angleOfHit -= 0.01;
-                }
-            }
-            if (!this.swinging) {
-                this.angleOfHit = 0;
-                this.angleToBall = 0;
-            }
             
+            if (forwardRotation) {
+                if (Math.abs(refAngle) <= 0.4 || Math.abs(refAngle) >= 2*Math.PI-0.4) {
+                    // hitting straight forward..
+                    if (this.angleOfHit <= -Math.PI/1.5) {
+                        this.swinging = false;
+                    }
+                    else {
+                        this.angleOfHit -= 0.01;
+                    }
+                }
+                else if ( (refAngle > 0 && refAngle < Math.PI) || (refAngle < -Math.PI) ) {
+                    // on right side
+                    if (this.angleOfHit >= Math.PI/1.5) {
+                        this.swinging = false;
+                    }
+                    else {
+                        this.angleOfHit += 0.01;
+                    }
+                }
+                else {
+                    // on left side
+                    if (this.angleOfHit <= -Math.PI/1.5) {
+                        this.swinging = false;
+                    }
+                    else {
+                        this.angleOfHit -= 0.01;
+                    }
+                }
+                if (!this.swinging) {
+                    this.angleOfHit = 0;
+                    this.angleToBall = 0;
+                }
+            }
+
             return new Vertex(rotatedVec[0], rotatedVec[1], rotatedVec[2] - this.vertices[0].z);
         }
         else {
@@ -1337,7 +1440,6 @@ class Bat extends Entity {
         
     }
     
-
     swing() {
         // should start a swing, rotate around base of player (or bat?), with end towards ball.
         // if start a new swing, abort old and start new...
@@ -1346,21 +1448,24 @@ class Bat extends Entity {
         // angleOfHit should be "animated" through hit (from pi/2 (or maybe back from 2PI/3) to 11PI/6 or so )
         //  (in y-z coords)
         let b = this.position.x - ball.position.x;
-        let a = this.position.z - (this.vertices[0].z * this.size) - ball.position.z; // centered on bottom of bat
+        let a = this.position.z - (this.vertices[0].z * this.size)/2 - ball.position.z; // centered on bottom of bat
         this.angleToBall = -(Math.atan2(a, b) + Math.PI/2); // relative to straight up
 
         // start by drawing bat back a bit
         const refAngle = this.angleToBall%(2*Math.PI);
-        if ( (refAngle > 0 && refAngle < Math.PI) || (refAngle < -Math.PI) ) {
+        if (Math.abs(refAngle) <= 0.4 || Math.abs(refAngle) >= 2*Math.PI-0.4) {
+            // straight forward-ish
+            this.angleOfHit = 0.8;
+        }
+        else if ( (refAngle > 0 && refAngle < Math.PI) || (refAngle < -Math.PI) ) {
             // on right side
-            this.angleOfHit = -0.2;
+            this.angleOfHit = -0.8;
         }
         else {
             // on left side
-            this.angleOfHit = 0.2;
+            this.angleOfHit = 0.8;
         }
         this.swinging = true;
-        
     }
 }
 // court (for å justere plassering i forhold til bakgrunn)

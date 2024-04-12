@@ -136,6 +136,13 @@ export function resetComms() {
     forceClient = false;
 }
 
+
+/**
+ * 
+ * @param {string} room 
+ * @param {string} nick 
+ * @returns 
+ */
 export async function startComms(room, nick) {
 
     startedComms = true;
@@ -262,6 +269,10 @@ export function disconnect() {
 let forceServer = false;
 let forceClient = false;
 
+/**
+ * 
+ * @param {string} newNick 
+ */
 export function newNick(newNick) {
     ourNick = newNick;
 
@@ -295,16 +306,33 @@ let onMessage = (fromPeer, message) => {};
 let onNewPeer = (newPeer, areWeServer) => {};
 let onLoosePeer = (lostPeer) => {};
 
+/**
+ * 
+ * @param {Function} fun 
+ */
 export function setOnMessage(fun) {
     onMessage = fun;
 }
+/**
+ * 
+ * @param {Function} fun 
+ */
 export function setOnNewPeer(fun) {
     onNewPeer = fun;
 }
+/**
+ * 
+ * @param {Function} fun 
+ */
 export function setOnLoosePeer(fun) {
     onLoosePeer = fun;
 }
 
+/**
+ * 
+ * @param {object} peer 
+ * @param {boolean} polite 
+ */
 async function newPeerConnection(peer, polite) {
 
     let connected = false;

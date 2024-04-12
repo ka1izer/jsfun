@@ -62,7 +62,11 @@ export function generateLocalId() {
     localId = nanoid(6);
 }
 
-// register our localId in firebase
+
+/**
+ * register our localId in firebase
+ * @param {string} roomId 
+ */
 export async function register(roomId) {
     await fetch(baseUrl + roomId + "/participants.json", { 
         method: 'POST',  // PATCH: update, PUT: replace`, POST: push/add
@@ -74,7 +78,11 @@ export async function register(roomId) {
       });
 }
 
-
+/**
+ * 
+ * @param {string} roomId 
+ * @returns object
+ */
 export async function getServer(roomId) {
     const response = await fetch(baseUrl + roomId + "/server.json", { 
         method: 'GET',  // PATCH: update, PUT: replace`, POST: push/add
@@ -88,6 +96,13 @@ export async function getServer(roomId) {
     return {'etag': response.headers.get('ETag'), 'server': server};
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {string} etag 
+ * @param {boolean} force 
+ * @returns boolean
+ */
 export async function registerAsServer(roomId, etag, force) {
     let headers = {
         'Content-type': 'application/json'
@@ -111,9 +126,13 @@ export async function registerAsServer(roomId, etag, force) {
     }
 }
 
-// get localIds from firebase, use to figure out which is "server", and count and stuff... (HOW to handle if server reloads or drops out? If reload, should still be server, otherwise new server. HOW?????)
 //                                                          "server" should maybe remove any rtc peers that drop out...? (remove from participants). And if client loses connection with server, vote for new "server"? (should be algorithm for this)
 //                                                          Skip most of that for now, just use for which is "server"
+/**
+ * get localIds from firebase, use to figure out which is "server", and count and stuff... (HOW to handle if server reloads or drops out? If reload, should still be server, otherwise new server. HOW?????)
+ * @param {string} roomId 
+ * @returns Array.object
+ */
 export async function getParticipants(roomId) {
     const response = await fetch(baseUrl + roomId + "/participants.json", { 
         method: 'GET',  // PATCH: update, PUT: replace`, POST: push/add
@@ -126,6 +145,10 @@ export async function getParticipants(roomId) {
     return participants;
 }
 
+/**
+ * @param {string} roomId 
+ * @returns Array.object
+ */
 export async function getParticipantWithOurId(roomId) {
     const response = await fetch(baseUrl + roomId + `/participants.json?orderBy="uniqueId"&startAt="${uniqueId}"&endAt="${uniqueId}"`, { 
         method: 'GET',  // PATCH: update, PUT: replace`, POST: push/add
@@ -138,6 +161,13 @@ export async function getParticipantWithOurId(roomId) {
     return participants;
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {boolean} polite 
+ * @param {object} peer 
+ * @param {object} jsonPayload 
+ */
 export async function send(roomId, polite, peer, jsonPayload) {
     //console.log("payload: ", jsonPayload);
     let channel = null;
@@ -166,6 +196,13 @@ export async function send(roomId, polite, peer, jsonPayload) {
     });
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {boolean} polite 
+ * @param {object} peer 
+ * @param {object} jsonPayload 
+ */
 export function push(roomId, polite, peer, jsonPayload) {
     let channel = polite
         ? peer.server.id+"_"+localId // peer=server, so goes first
@@ -173,6 +210,12 @@ export function push(roomId, polite, peer, jsonPayload) {
     pushChannel(roomId, channel, jsonPayload);
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {RTCDataChannel} channel 
+ * @param {object} jsonPayload 
+ */
 export function pushChannel(roomId, channel, jsonPayload) {
     queue(() => {
         return fetch(baseUrl + roomId + "/signals/"+channel+".json?rand="+Math.random(), { 
@@ -186,6 +229,10 @@ export function pushChannel(roomId, channel, jsonPayload) {
     });
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ */
 export async function lostServer(roomId) {
     // kanal "signals/disconnected", hvor hver klient som mister comms med serveren pusher "lost server" eller noe (inkl timestamp (sett timestamp: {".sv": "timestamp"}, så får vi timestamp: 12314 (unix time millis))).
 
@@ -199,6 +246,10 @@ export async function lostServer(roomId) {
       });
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ */
 export async function serverIsUp(roomId) {
     fetch(baseUrl + roomId + "/signals/disconnected.json", { 
         method: 'PUT',  // PATCH: update, PUT: replace`, POST: push/add
@@ -210,6 +261,12 @@ export async function serverIsUp(roomId) {
     });
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {string} oldId 
+ * @returns 
+ */
 export async function getChannelsWithOldId(roomId, oldId) {
     const response = await fetch(baseUrl + roomId + `/signals.json?orderBy="$key"&startAt="${oldId}"`, { 
         method: 'GET',  // PATCH: update, PUT: replace`, POST: push/add
@@ -232,6 +289,10 @@ export async function getChannelsWithOldId(roomId, oldId) {
     return channels;
 }*/
 
+/**
+ * 
+ * @param {string} roomId 
+ */
 export function cleanupDisconnectMessages(roomId) {
     //console.log("loooooking", baseUrl + roomId + `/signals/disconnected.json?orderBy="payload/uniqueId"&startAt="${uniqueId}"`);
     //'Index not defined, add ".indexOn": "payload/unique…ms/testRoomId/signals/disconnected", to the rules'
@@ -259,6 +320,11 @@ export function cleanupDisconnectMessages(roomId) {
 
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {Array.string} toDelete 
+ */
 export function removeChannels(roomId, toDelete) {
     
     for (const part of toDelete) {
@@ -277,6 +343,11 @@ export function removeChannels(roomId, toDelete) {
     }
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {Array.string} toDelete 
+ */
 export async function removeParticipants(roomId, toDelete) {
     for (const part of toDelete) {
         //console.log("deleteing", part);
@@ -292,6 +363,13 @@ export async function removeParticipants(roomId, toDelete) {
     }
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {boolean} polite 
+ * @param {object} peer 
+ * @param {Function} callback 
+ */
 export async function getInitialSignals(roomId, polite, peer, callback) {
     let channel = polite
         ? peer.server.id+"_"+localId // peer=server, so goes first
@@ -320,6 +398,13 @@ export async function getInitialSignals(roomId, polite, peer, callback) {
 
 let _serverLocalid = null;
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {boolean} polite 
+ * @param {object} peer 
+ * @param {Function} callback 
+ */
 export function listenForSignals(roomId, polite, peer, callback) {
     //console.log("listenForSignals peer", peer);
 
@@ -346,10 +431,18 @@ export function listenForSignals(roomId, polite, peer, callback) {
     listen(roomId, callback, "signals", channel);
 }
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {Function} callback 
+ */
 export function listenForParticipants(roomId, callback) {
     listen(roomId, callback, "participants");
 }
 
+/**
+ * 
+ */
 export function stopListening() {
     //console.log("clearing channelListeners");
     channelListeners = [];
@@ -358,6 +451,14 @@ export function stopListening() {
 let channelListeners = [];
 let listeningForSignals = false;
 
+/**
+ * 
+ * @param {string} roomId 
+ * @param {Function} callback 
+ * @param {string} type 
+ * @param {RTCDataChannel} channel 
+ * @returns 
+ */
 function listen(roomId, callback, type, channel) {
     //console.log("start listening on " + type, channel);
     let abortController = null;

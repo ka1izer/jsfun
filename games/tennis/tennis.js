@@ -1335,7 +1335,7 @@ class Bat extends Entity {
         const reverseRotatedEntityPos = this.rotate(batCenteredEntityPos, false);
         // then, put it back on world coordinates
         reverseRotatedEntityPos.set(reverseRotatedEntityPos.x + this.position.x, reverseRotatedEntityPos.y + this.position.y, reverseRotatedEntityPos.z + this.position.z);
-        console.log("collidesWith...", this.position, this.boundingRect, reverseRotatedEntityPos, entity.position, this.angleToBall);
+        //console.log("collidesWith...", this.position, this.boundingRect, reverseRotatedEntityPos, entity.position, this.angleToBall);
         
         return this.boundingRect.collidesWith(this.position, reverseRotatedEntityPos, entity.boundingRect);
     }

@@ -2235,7 +2235,7 @@ function getNewState(peer, data) {
 let packageId = 1;
 let prevPackage = null;
 function sendNewState() {
-    /*if (prevPackage != null) {
+    if (prevPackage != null) {
         // send twice for redundancy... :-) recipient should throw away duplicate packages (by id)
         if (weAreServer) {
             peers.forEach(p => {
@@ -2256,20 +2256,20 @@ function sendNewState() {
                         }
                     }
                     if (Object.keys(prunedState).length > 0) {
-                        p.channel.send({changedState: prunedState, id: prevPackage.id});
+                        p.channel.send(JSON.stringify({changedState: prunedState, id: prevPackage.id}));
                     }
                 }
                 else {
-                    p.channel.send(prevPackage);
+                    p.channel.send(JSON.stringify(prevPackage));
                 }
             });
         }
         else {
-            peers[0].channel.send(prevPackage);
+            peers[0].channel.send(JSON.stringify(prevPackage));
         }
         
         prevPackage = null;
-    }*/
+    }
     if (Object.keys(playState.changedState).length > 0) {
         const state = {changedState: playState.changedState, id: packageId};
         const toSend = JSON.stringify(state);
@@ -2301,12 +2301,12 @@ function sendNewState() {
                         }
                     }
                     if (Object.keys(prunedState).length > 0) {
-                        p.channel.send({changedState: prunedState, id: toSend.id});
+                        p.channel.send(JSON.stringify({changedState: prunedState, id: toSend.id}));
                     }
                 }
                 else {
                     p.channel.send(toSend);
-                    prevPackage = toSend;
+                    prevPackage = state;
                 }
             });
         }
@@ -2322,7 +2322,7 @@ function sendNewState() {
             }
             peers[0].channel.send(JSON.stringify({player: { pos: player.position}, ball: ballData, (serving/hitting/etc..) }));*/
             peers[0].channel.send(toSend);
-            prevPackage = toSend;
+            prevPackage = state;
         }
         packageId++;
         playState.changedState = {};

@@ -2235,7 +2235,7 @@ function getNewState(peer, data) {
 let packageId = 1;
 let prevPackage = null;
 function sendNewState() {
-    if (prevPackage != null) {
+    /*if (prevPackage != null) {
         // send twice for redundancy... :-) recipient should throw away duplicate packages (by id)
         if (weAreServer) {
             peers.forEach(p => {
@@ -2269,7 +2269,7 @@ function sendNewState() {
         }
         
         prevPackage = null;
-    }
+    }*/
     if (Object.keys(playState.changedState).length > 0) {
         const state = {changedState: playState.changedState, id: packageId};
         const toSend = JSON.stringify(state);
@@ -2289,7 +2289,7 @@ function sendNewState() {
                         || state.changedState.hit == p.nick) {
                     // is same player, no need to send to them...
                     // could be other changes we want to send, tho! should remove those, and send any other...
-                    const prunedState = {};
+                    /*const prunedState = {};
                     for (const key of Object.keys(state.changedState)) {
                         if (key == 'playerMoved' && state.changedState.playerMoved == p.nick
                             || key == 'serving' && state.changedState.serving == p.nick
@@ -2302,7 +2302,7 @@ function sendNewState() {
                     }
                     if (Object.keys(prunedState).length > 0) {
                         p.channel.send({changedState: prunedState, id: toSend.id});
-                    }
+                    }*/
                 }
                 else {
                     p.channel.send(toSend);

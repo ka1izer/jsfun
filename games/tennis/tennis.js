@@ -220,33 +220,27 @@ class BoundingRectangle {
         //debugger;
         if (thisCenter.x + this.offset.x + this.vertices[0].x > otherCenter.x + otherBound.offset.x + otherBound.vertices[1].x) {
             // lower left corner of this bottom is to right of lower right corner of other, cannot collide
-            console.log("miss 1")
             return false;
         }
         if (thisCenter.y + this.offset.y + this.vertices[0].y > otherCenter.y + otherBound.offset.y + otherBound.vertices[3].y) {
             // lower left corner of this bottom is above (y-axis) upper right corner of other bottom, cannot collide
-            console.log("miss 2")
             return false;
         }
         if (thisCenter.z + this.offset.z + this.vertices[0].z > otherCenter.z + otherBound.offset.z + otherBound.vertices[4].z) {
             // lower left corner of this bottom is above (z-axis) lower left corner of other top, cannot collide
-            console.log("miss 3")
             return false;
         }
 
         if (thisCenter.x + this.offset.x + this.vertices[1].x < otherCenter.x + otherBound.offset.x + otherBound.vertices[0].x) {
             // lower right corner of this bottom is to left of lower left corner of other, cannot collide
-            console.log("miss 4")
             return false;
         }
         if (thisCenter.y + this.offset.y + this.vertices[3].y < otherCenter.y + otherBound.offset.y + otherBound.vertices[0].y) {
             // upper right corner of this bottom is below (y-axis) lower left corner of other bottom, cannot collide
-            console.log("miss 5")
             return false;
         }
         if (thisCenter.z + this.offset.z + this.vertices[4].z < otherCenter.z + otherBound.offset.z + otherBound.vertices[0].z) {
             // lower left corner of this top is below (z-axis) lower left corner of other bottom, cannot collide
-            console.log("miss 6")
             return false;
         }
         return true;
@@ -1060,7 +1054,7 @@ class Ball extends Sprite {
         //console.log("targetr", target);
         if (target.y >= 0.6 && target.y < 2) {
             xFactor = 550/33;
-            yFactor = 10/0.6;
+            yFactor = 20/0.6;
             band = 1;
         }
         else if (target.y >= 2 && target.y < 4) {
@@ -1070,17 +1064,17 @@ class Ball extends Sprite {
         }
         else if (target.y >= 4 && target.y < 6) {
             xFactor = 550/33;
-            yFactor = 450/10.5;
+            yFactor = 300/10.5;
             band = 3;
         }
         else if (target.y >= 6 && target.y < 8) {
             xFactor = 600/33;
-            yFactor = 450/10.5;
+            yFactor = 250/10.5;
             band = 4;
         }
         else if (target.y >= 8 && target.y <= 11) {
             xFactor = 650/33;
-            yFactor = 450/10.5;
+            yFactor = 300/10.5;
             band = 5;
         }
         target.x = target.x * xFactor;
@@ -1997,15 +1991,8 @@ function movePlayer(delta) {
     }
     else if (keys.up) {
         player.position.y += .5 * delta * keys.movementSpeedY;
-        if (player.state == PlayerState.AboutToServe) {
-            if (player.position.y > -250) {
-                player.position.y = -250;
-            }
-        }
-        else {
-            if (player.position.y > -10) {
-                player.position.y = -10;
-            }
+        if (player.position.y > -10) {
+            player.position.y = -10;
         }
         //ball.position.z += .5 * delta;
         moved = true;
@@ -2025,6 +2012,12 @@ function movePlayer(delta) {
         }
         //ball.position.x += .5 * delta;
         moved = true;
+    }
+    if (player.state == PlayerState.AboutToServe) {
+        if (player.position.y > -250) {
+            player.position.y = -250;
+            moved = true;
+        }
     }
     if (moved) {
         playState.playerMoved(player);
@@ -2240,7 +2233,43 @@ function getNewState(peer, data) {
 }
 
 let packageId = 1;
+let prevPackage = null;
 function sendNewState() {
+    if (prevPackage != null) {
+        // send twice for redundancy... :-) recipient should throw away duplicate packages (by id)
+        if (weAreServer) {
+            peers.forEach(p => {
+                if (prevPackage.changedState?.playerMoved == p.nick
+                        || prevPackage.changedState?.serving == p.nick
+                        || prevPackage.changedState?.hit == p.nick) {
+                    // is same player, no need to send to them...
+                    // could be other changes we want to send, tho! should remove those, and send any other...
+                    const prunedState = {};
+                    for (const key of Object.keys(prevPackage.changedState)) {
+                        if (key == 'playerMoved' && prevPackage.changedState.playerMoved == p.nick
+                            || key == 'serving' && prevPackage.changedState.serving == p.nick
+                            || key == 'hit' && prevPackage.changedState.hit == p.nick) {
+                            // skip
+                        }
+                        else {
+                            prunedState[key] = prevPackage.changedState[key];
+                        }
+                    }
+                    if (Object.keys(prunedState).length > 0) {
+                        p.channel.send({changedState: prunedState, id: prevPackage.id});
+                    }
+                }
+                else {
+                    p.channel.send(prevPackage);
+                }
+            });
+        }
+        else {
+            peers[0].channel.send(prevPackage);
+        }
+        
+        prevPackage = null;
+    }
     if (Object.keys(playState.changedState).length > 0) {
         const state = {changedState: playState.changedState, id: packageId};
         const toSend = JSON.stringify(state);
@@ -2259,10 +2288,25 @@ function sendNewState() {
                         || state.changedState.serving == p.nick
                         || state.changedState.hit == p.nick) {
                     // is same player, no need to send to them...
+                    // could be other changes we want to send, tho! should remove those, and send any other...
+                    const prunedState = {};
+                    for (const key of Object.keys(state.changedState)) {
+                        if (key == 'playerMoved' && state.changedState.playerMoved == p.nick
+                            || key == 'serving' && state.changedState.serving == p.nick
+                            || key == 'hit' && state.changedState.hit == p.nick) {
+                            // skip
+                        }
+                        else {
+                            prunedState[key] = state.changedState[key];
+                        }
+                    }
+                    if (Object.keys(prunedState).length > 0) {
+                        p.channel.send({changedState: prunedState, id: toSend.id});
+                    }
                 }
                 else {
                     p.channel.send(toSend);
-                    p.channel.send(toSend); // send twice for redundancy... :-) recipient should throw away duplicate packages (by id)
+                    prevPackage = toSend;
                 }
             });
         }
@@ -2278,7 +2322,7 @@ function sendNewState() {
             }
             peers[0].channel.send(JSON.stringify({player: { pos: player.position}, ball: ballData, (serving/hitting/etc..) }));*/
             peers[0].channel.send(toSend);
-            peers[0].channel.send(toSend); // send twice for redundancy... :-) recipient should throw away duplicate packages (by id)
+            prevPackage = toSend;
         }
         packageId++;
         playState.changedState = {};

@@ -2289,7 +2289,7 @@ function sendNewState() {
                         || state.changedState.hit == p.nick) {
                     // is same player, no need to send to them...
                     // could be other changes we want to send, tho! should remove those, and send any other...
-                    /*const prunedState = {};
+                    const prunedState = {};
                     for (const key of Object.keys(state.changedState)) {
                         if (key == 'playerMoved' && state.changedState.playerMoved == p.nick
                             || key == 'serving' && state.changedState.serving == p.nick
@@ -2302,7 +2302,7 @@ function sendNewState() {
                     }
                     if (Object.keys(prunedState).length > 0) {
                         p.channel.send({changedState: prunedState, id: toSend.id});
-                    }*/
+                    }
                 }
                 else {
                     p.channel.send(toSend);

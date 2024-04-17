@@ -1413,7 +1413,9 @@ class Bat extends Entity {
                     // hitting straight forward..
                     if (this.angleOfHit <= -Math.PI/1.5) {
                         this.swinging = false;
-                        playState.playerStoppedSwinging(player);
+                        if (this.plr == player) {
+                            playState.playerStoppedSwinging(player);
+                        }
                     }
                     else {
                         this.angleOfHit -= 0.01;
@@ -1423,7 +1425,9 @@ class Bat extends Entity {
                     // on right side
                     if (this.angleOfHit >= Math.PI/1.5) {
                         this.swinging = false;
-                        playState.playerStoppedSwinging(player);
+                        if (this.plr == player) {
+                            playState.playerStoppedSwinging(player);
+                        }
                     }
                     else {
                         this.angleOfHit += 0.01;
@@ -1433,7 +1437,9 @@ class Bat extends Entity {
                     // on left side
                     if (this.angleOfHit <= -Math.PI/1.5) {
                         this.swinging = false;
-                        playState.playerStoppedSwinging(player);
+                        if (this.plr == player) {
+                            playState.playerStoppedSwinging(player);
+                        }
                     }
                     else {
                         this.angleOfHit -= 0.01;

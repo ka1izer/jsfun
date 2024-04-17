@@ -12,7 +12,7 @@ MainLoop.setUpdate(delta => {
             keys.hit = 0;
         }
         else {
-            keys.hit -= delta * 10.1;
+            keys.hit -= delta * 10.1; // times with 10, basically just have 1 hit now.. lazy, didnt bother to remove the code with it...
         }
         player.hit();
     }
@@ -130,7 +130,7 @@ class Camera {
     /**
      * 
      * @param {Vertex} vertex 
-     * @returns 
+     * @returns {Vertex} 
      */
     toView(vertex) {
         // first, subtract camera position
@@ -513,12 +513,28 @@ class PlayState {
     attemptsToServe = 0;
     serves = 0; // just switch server on 4 serves for now?
     scores = [0,0]; // scores for team1 and team2...
-    changedState = {}; // {playerMoved: nick, pos}, {aboutToServe: nick}, {serving: nick, ball:{pos, vel}}, {hit: nick, ball:{pos, vel}}, {score: [1,0]}, {newPlayerToServe: nick} , {aboutToServe: nick}
+    changedState = {}; // {playerMoved: nick, pos}, {aboutToServe: nick}, {serving: nick, ball:{pos, vel}}, {hit: nick, ball:{pos, vel}}, {score: [1,0]}, {newPlayerToServe: nick} , {aboutToServe: nick}, {playerSwinging: nick, angleToBall, angleOfHit}, {playerStoppedSwinging: nick}
 
     playerMoved(plr) {
         // can get multiple of these between times we send(?), so should maybe use array or something here...?
         this.changedState.playerMoved = plr.peer.nick; // should prolly change to send keys/touch-equiv instead, with position only occasionally, but...
         this.changedState.pos = plr.position;
+    }
+    /**
+     * 
+     * @param {Player} plr 
+     */
+    playerSwinging(plr) {
+        this.changedState.playerSwinging = plr.peer.nick;
+        this.changedState.angleToBall = plr.bat.angleToBall;
+        this.changedState.angleOfHit = plr.bat.angleOfHit;
+    }
+    /**
+     * 
+     * @param {Player} plr 
+     */
+    playerStoppedSwinging(plr) {
+        this.changedState.playerStoppedSwinging = plr.peer.nick;
     }
     aboutToServe(plr) {
         // this is always called by player about to serve (not just server)
@@ -728,10 +744,10 @@ class Player extends Sprite {
     }
 
     hit() {
-        let checkForHit = true;
+        //let checkForHit = true;
         if (this.state == PlayerState.AboutToServe) {
             // throw ball in the air...
-            checkForHit = false;
+            //checkForHit = false;
             ball.state = BallState.InPlay;
             this.state = PlayerState.Idle;
             ball.serve();
@@ -1319,7 +1335,7 @@ class Bat extends Entity {
     /**
      * 
      * @param {Entity} entity 
-     * @returns boolean
+     * @returns {boolean}
      */
     collidesWith(entity) {
 
@@ -1338,7 +1354,7 @@ class Bat extends Entity {
      * 
      * @param {Vertex} vertex 
      * @param {boolean} forwardRotation 
-     * @returns Vertex
+     * @returns {Vertex}
      */
     rotate(vertex, forwardRotation) {
         // use both angles to rotate
@@ -1397,6 +1413,7 @@ class Bat extends Entity {
                     // hitting straight forward..
                     if (this.angleOfHit <= -Math.PI/1.5) {
                         this.swinging = false;
+                        playState.playerStoppedSwinging(player);
                     }
                     else {
                         this.angleOfHit -= 0.01;
@@ -1406,6 +1423,7 @@ class Bat extends Entity {
                     // on right side
                     if (this.angleOfHit >= Math.PI/1.5) {
                         this.swinging = false;
+                        playState.playerStoppedSwinging(player);
                     }
                     else {
                         this.angleOfHit += 0.01;
@@ -1415,6 +1433,7 @@ class Bat extends Entity {
                     // on left side
                     if (this.angleOfHit <= -Math.PI/1.5) {
                         this.swinging = false;
+                        playState.playerStoppedSwinging(player);
                     }
                     else {
                         this.angleOfHit -= 0.01;
@@ -1460,6 +1479,7 @@ class Bat extends Entity {
             this.angleOfHit = 0.8;
         }
         this.swinging = true;
+        playState.playerSwinging(player);
     }
 }
 // court (for å justere plassering i forhold til bakgrunn)
@@ -2058,6 +2078,11 @@ function movePlayer(delta) {
     // need checks, so dont move more up than net, not below screen, and not outside court?
 }
 
+/**
+ * 
+ * @param {string} plrNick 
+ * @returns {Player}
+ */
 function findPlayerByNick(plrNick) {
     for (const plr of players) {
         if (plr.peer?.nick == plrNick) {
@@ -2157,6 +2182,20 @@ function getNewState(peer, data) {
                 }
             }
         }
+        //, {playerSwinging: nick, angleToBall, angleOfHit}
+        if (change.playerSwinging) {
+            const plr = findPlayerByNick(change.playerSwinging);
+            plr.bat.swinging = true;
+            plr.bat.angleOfHit = change.angleOfHit;
+            plr.bat.angleToBall = change.angleToBall;
+        }
+        //, {playerStoppedSwinging: nick}
+        if (change.playerStoppedSwinging) {
+            const plr = findPlayerByNick(change.playerStoppedSwinging);
+            plr.bat.swinging = false;
+            plr.bat.angleOfHit = 0;
+            plr.bat.angleToBall = 0;
+        }
         if (change.aboutToServe) {
             // {aboutToServe: nick}
             const plr = findPlayerByNick(change.aboutToServe);
@@ -2248,7 +2287,9 @@ function sendNewState() {
                     for (const key of Object.keys(prevPackage.changedState)) {
                         if (key == 'playerMoved' && prevPackage.changedState.playerMoved == p.nick
                             || key == 'serving' && prevPackage.changedState.serving == p.nick
-                            || key == 'hit' && prevPackage.changedState.hit == p.nick) {
+                            || key == 'hit' && prevPackage.changedState.hit == p.nick
+                            || key == 'playerSwinging' && state.changedState.playerSwinging == p.nick
+                            || key == 'playerStoppedSwinging' && state.changedState.playerStoppedSwinging == p.nick) {
                             // skip
                         }
                         else {
@@ -2293,7 +2334,9 @@ function sendNewState() {
                     for (const key of Object.keys(state.changedState)) {
                         if (key == 'playerMoved' && state.changedState.playerMoved == p.nick
                             || key == 'serving' && state.changedState.serving == p.nick
-                            || key == 'hit' && state.changedState.hit == p.nick) {
+                            || key == 'hit' && state.changedState.hit == p.nick
+                            || key == 'playerSwinging' && state.changedState.playerSwinging == p.nick
+                            || key == 'playerStoppedSwinging' && state.changedState.playerStoppedSwinging == p.nick) {
                             // skip
                         }
                         else {
@@ -2431,3 +2474,7 @@ export function uninitialize() {
 // ball (usikker på om skal bruke sprite eller faktisk 3d-entity for den... 1 vertex for center om sprite? Må jo nesten ha size osv for collision detection, da...?)
 // net? For collision detection and to clip the opponent? Maybe? Maybe overkill? Unsure...
 // evt fun other shit... birds, ref, whatever...
+
+
+// Also, fix mobile controls (show track ball, from center of white, and more granular (further out for full speed))
+// Can eventually have possibility to hit players? Other fun stuff?

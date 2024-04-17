@@ -2185,9 +2185,13 @@ function getNewState(peer, data) {
         //, {playerSwinging: nick, angleToBall, angleOfHit}
         if (change.playerSwinging) {
             const plr = findPlayerByNick(change.playerSwinging);
-            plr.bat.swinging = true;
-            plr.bat.angleOfHit = change.angleOfHit;
-            plr.bat.angleToBall = change.angleToBall;
+            const peerPlayPos = findPlayPositionOfPeer(peer);
+            if (plr != player) {
+                plr.bat.swinging = true;
+                const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
+                plr.bat.angleOfHit = sameTeamAsUs? change.angleOfHit : -change.angleOfHit;
+                plr.bat.angleToBall = sameTeamAsUs? change.angleToBall : -change.angleToBall;
+            }
         }
         //, {playerStoppedSwinging: nick}
         if (change.playerStoppedSwinging) {
@@ -2478,3 +2482,5 @@ export function uninitialize() {
 
 // Also, fix mobile controls (show track ball, from center of white, and more granular (further out for full speed))
 // Can eventually have possibility to hit players? Other fun stuff?
+
+// BUG?: joiner room via qr-code, må reloade for at comms skal funke...

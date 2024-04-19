@@ -1719,15 +1719,12 @@ export function initialize() {
     mainDiv.parentElement.appendChild(touchDiv);
 
     touchImg = document.createElementNS("http://www.w3.org/2000/svg","svg");
-    /*touchImg.setAttribute('width', "100%");
-    touchImg.setAttribute('height', "100%");*/
-    //touchImg.viewBox = "0 0 200 200";
-    touchImg.style.width = "200";
-    touchImg.style.height = "200";
+    touchImg.style.width = "200px";
+    touchImg.style.height = "200px";
     touchImg.style.position = "absolute";
-    touchImg.style.display = "NONE";
+    touchImg.style.left = touchDiv.getBoundingClientRect().width/2 - 100 + "px";
+    touchImg.style.top = (window.innerHeight - touchDiv.getBoundingClientRect().top)/2 - 100 + "px";
     touchImg.id = "touchImg";
-    //touchImg.setAttribute('className', "touchImg");
     touchImg.innerHTML = '<circle class="innerCircle" cx="100" cy="100" r="30" style="fill: red; stroke: black;"></circle> <circle class="outerCircle" cx="100" cy="100" r="90" style="fill: none; stroke: red; stroke-width: 3px"></circle>';
     touchDiv.appendChild(touchImg);
 
@@ -1760,10 +1757,10 @@ function initializeState() {
         plr.changeState(PlayerState.Idle);
     }
     // first player in players should serve first...
-    if (weAreServer) {
+    //if (weAreServer) {
         players[0].changeState(PlayerState.AboutToServe);
         ball.changeState(BallState.AboutToServe, players[0]);
-    }
+    //}
 }
 
 function createEntities() {
@@ -1916,7 +1913,6 @@ function touchClicked(event) {
 function showTouchImg(x, y) {
     touchImg.style.display = "";
     const svgBounds = touchImg.getBoundingClientRect();
-    console.log("svgBounds", svgBounds, svgBounds.width)
     touchImg.style.left = "" + (x - svgBounds.width/2 - touchDiv.getBoundingClientRect().left) + "px";
     touchImg.style.top = "" + (y - svgBounds.height/2 - touchDiv.getBoundingClientRect().top) + "px";
 }
@@ -2537,5 +2533,4 @@ export function uninitialize() {
 
 // Also, fix mobile controls (show track ball, from center of white, and more granular (further out for full speed))
 // Can eventually have possibility to hit players? Other fun stuff?
-
 

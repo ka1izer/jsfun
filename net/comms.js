@@ -539,6 +539,18 @@ async function newPeerConnection(peer, polite) {
     // listen for signaling incoming (from firebase):
     let ignoreOffer = false;
 
+    const addIceCandidate = async (candidate) => {
+        try {
+            await peerConnection.addIceCandidate(candidate);
+        }
+        catch (err) {
+            if (!ignoreOffer) {
+                throw err;
+            }
+        }
+    };
+    let prematureCandidates = [];
+
     const callback = async ({ description, candidate, closeChannel, lostServer, serverIsUp } ) => {
         try {
             if (closeChannel) {
@@ -558,33 +570,42 @@ async function newPeerConnection(peer, polite) {
                     (makingOffer || peerConnection.signalingState !== "stable");
 
                 ignoreOffer = !polite && offerCollision;
+                console.log("ignoreOffer, state, desc", ignoreOffer, peerConnection.signalingState, description)
                 if (ignoreOffer) {
                     return;
                 }
-                //console.log("offer from signaling...", description);
-
+                
                 await peerConnection.setRemoteDescription(description);
                 if (description.type === "offer") {
                     await peerConnection.setLocalDescription();
                     await Signaler.send(roomId, polite, peer, { description: peerConnection.localDescription });
                 }
+                if (prematureCandidates.length > 0) {
+                    for (const cand of prematureCandidates) {
+                        addIceCandidate(cand);
+                    }
+                    prematureCandidates = [];
+                }
             }
             else if (candidate) {
                 //console.log("candidate from signaling");
                 if (peerConnection.remoteDescription != null) {
-                    try {
+                    /*try {
                         await peerConnection.addIceCandidate(candidate);
                     }
                     catch (err) {
                         if (!ignoreOffer) {
                             throw err;
                         }
-                    }
+                    }*/
+                    addIceCandidate(candidate);
                 }
                 else {
                     // got candidate before description... add a small delay
                     //console.log("dDELELELLAYYY");
-                    setTimeout(async () => await peerConnection.addIceCandidate(candidate), 500);
+                    //setTimeout(async () => await peerConnection.addIceCandidate(candidate), 1500);
+                    console.log("premature candidate");
+                    prematureCandidates.push(candidate);
                 }
             }
             else if (lostServer) {

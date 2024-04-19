@@ -2489,4 +2489,4 @@ export function uninitialize() {
 // Also, fix mobile controls (show track ball, from center of white, and more granular (further out for full speed))
 // Can eventually have possibility to hit players? Other fun stuff?
 
-// BUG?: joiner room via qr-code, må reloade for at comms skal funke...
+

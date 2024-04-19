@@ -570,7 +570,7 @@ async function newPeerConnection(peer, polite) {
                     (makingOffer || peerConnection.signalingState !== "stable");
 
                 ignoreOffer = !polite && offerCollision;
-                console.log("ignoreOffer, state, desc", ignoreOffer, peerConnection.signalingState, description)
+                //console.log("ignoreOffer, state, desc", ignoreOffer, peerConnection.signalingState, description)
                 if (ignoreOffer) {
                     return;
                 }

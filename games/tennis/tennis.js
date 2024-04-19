@@ -1529,13 +1529,34 @@ class Court extends Entity {
     }
 }
 
-
+/**
+ * @type {HTMLDivElement}
+ */
 let mainDiv = null;
+/**
+ * @type {HTMLDivElement}
+ */
 let touchDiv = null;
+/**
+ * @type {SVGSVGElement}
+ */
+let touchImg = null;
+/**
+ * @type {HTMLCanvasElement}
+ */
 let canvas = null;
+/**
+ * @type {CanvasRenderingContext2D}
+ */
 let ctx = null;
 
+/**
+ * @type {number}
+ */
 let canvasHeight = null;
+/**
+ * @type {number}
+ */
 let canvasWidth = null;
 
 let xRatio = null;
@@ -1696,6 +1717,19 @@ export function initialize() {
     touchDiv.id = "touchDiv";
     touchDiv.className = "touchDiv";
     mainDiv.parentElement.appendChild(touchDiv);
+
+    touchImg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+    /*touchImg.setAttribute('width', "100%");
+    touchImg.setAttribute('height', "100%");*/
+    //touchImg.viewBox = "0 0 200 200";
+    touchImg.style.width = "200";
+    touchImg.style.height = "200";
+    touchImg.style.position = "absolute";
+    touchImg.style.display = "NONE";
+    touchImg.id = "touchImg";
+    //touchImg.setAttribute('className', "touchImg");
+    touchImg.innerHTML = '<circle class="innerCircle" cx="100" cy="100" r="30" style="fill: red; stroke: black;"></circle> <circle class="outerCircle" cx="100" cy="100" r="90" style="fill: none; stroke: red; stroke-width: 3px"></circle>';
+    touchDiv.appendChild(touchImg);
 
     // preload images/sprites
     
@@ -1879,11 +1913,24 @@ function touchClicked(event) {
     }
 }
 
+function showTouchImg(x, y) {
+    touchImg.style.display = "";
+    const svgBounds = touchImg.getBoundingClientRect();
+    console.log("svgBounds", svgBounds, svgBounds.width)
+    touchImg.style.left = "" + (x - svgBounds.width/2 - touchDiv.getBoundingClientRect().left) + "px";
+    touchImg.style.top = "" + (y - svgBounds.height/2 - touchDiv.getBoundingClientRect().top) + "px";
+}
+
+function hideTouchImg() {
+    touchImg.style.display = "none";
+}
+
 function touchStart(event) {
     if (event.changedTouches.length == 1 || keys.touchIdentifier == null) {
         keys.touchX = event.changedTouches[0].pageX;
         keys.touchY = event.changedTouches[0].pageY;
         keys.touchIdentifier = event.changedTouches[0].identifier;
+        showTouchImg(keys.touchX, keys.touchY);
     }
     else {
         /*for (const touch of event.changedTouches) {
@@ -1902,6 +1949,7 @@ function touchStart(event) {
 }
 
 function touchMove(event) {
+    const factor = 80;
     for (const touch of event.changedTouches) {
         if (keys.touchIdentifier == touch.identifier) {
             const newX = touch.pageX;
@@ -1909,12 +1957,12 @@ function touchMove(event) {
             if (newX > keys.touchX) {
                 keys.right = true;
                 keys.left = false;
-                keys.movementSpeedX = (newX - keys.touchX)/40;
+                keys.movementSpeedX = (newX - keys.touchX)/factor;
             }
             else if (newX < keys.touchX) {
                 keys.right = false;
                 keys.left = true;
-                keys.movementSpeedX = (keys.touchX - newX)/40;
+                keys.movementSpeedX = (keys.touchX - newX)/factor;
             }
             else {
                 keys.right = false;
@@ -1923,12 +1971,12 @@ function touchMove(event) {
             if (newY > keys.touchY) {
                 keys.up = false;
                 keys.down = true;
-                keys.movementSpeedY = (newY - keys.touchY)/40;
+                keys.movementSpeedY = (newY - keys.touchY)/factor;
             }
             else if (newY < keys.touchY) {
                 keys.up = true;
                 keys.down = false;
-                keys.movementSpeedY = (keys.touchY - newY)/40;
+                keys.movementSpeedY = (keys.touchY - newY)/factor;
             }
             else {
                 keys.up = false;
@@ -1951,6 +1999,7 @@ function touchEnd(event) {
             keys.touchX = keys.touchY = 0;
             keys.left = keys.right = keys.up = keys.down = false;
             keys.touchIdentifier = null;
+            hideTouchImg();
             return;
         }
     }

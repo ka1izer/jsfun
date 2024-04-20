@@ -36,9 +36,9 @@ const config = {
         //{urls: 'stun:freeturn.net:5349' },
         //{urls: 'stun:freeturn.net:3478' },
         //{urls: 'TURN:freeturn.net:3478', username: 'free', credential: 'free' }, // unencrypted UDP/TCP
-        {urls: 'TURNS:freeturn.net:5349', username: 'free', credential: 'free' }, // encrypted TLS
+        /*{urls: 'TURNS:freeturn.net:5349', username: 'free', credential: 'free' }, // encrypted TLS
         
-        {urls: 'turn:turn.bistri.com:80', username: 'homeo', credential: 'homeo'}, // port 80
+        {urls: 'turn:turn.bistri.com:80', username: 'homeo', credential: 'homeo'}, // port 80*/
         // Firefox says: Using more than two STUN/TURN servers slows down discovery
                     // And using 5 or more causes problems (according to firefox)
     ],

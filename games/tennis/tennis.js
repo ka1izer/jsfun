@@ -1828,7 +1828,7 @@ export function initialize(parentClss) {
     // start gameloop..?MainLoop.start() ? Or in allImagesLoaded() maybe???
     console.log("initialized tennis!")
 
-    playState.teamWon(0);
+    //playState.teamWon(0);
 }
 
 function initializeState() {

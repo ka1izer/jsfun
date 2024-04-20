@@ -489,6 +489,7 @@ function drawScores(ctx) {
     ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
     ctx.strokeText("Us:       " + ourScore, 10, 10);
     ctx.strokeText("Them:   " + otherScore, 10, 20);
+    ctx.strokeText("To win: " + players.length*4, 10, 30);
 }
 const PlayerState = {
     AboutToServe: 0, Serving: 1, HitBall: 2, MissedBall: 3, Idle: 4
@@ -519,6 +520,17 @@ class PlayState {
         // can get multiple of these between times we send(?), so should maybe use array or something here...?
         this.changedState.playerMoved = plr.peer.nick; // should prolly change to send keys/touch-equiv instead, with position only occasionally, but...
         this.changedState.pos = plr.position;
+    }
+
+    reset() {
+        this.gameState = GameState.AboutToServe;
+        this.lastPlayerToHitBall = null;
+        this.ballBounces = 0; // only player actually hitting (or trying to hit in case of serving) should update this
+        this.lastPlayerToServe = null;
+        this.attemptsToServe = 0;
+        this.serves = 0; // just switch server on 4 serves for now?
+        this.scores = [0,0]; // scores for team1 and team2...
+        this.changedState = {};
     }
     /**
      * 
@@ -561,6 +573,65 @@ class PlayState {
         this.changedState.hit = this.lastPlayerToHitBall.peer.nick;
         this.changedState.ball = {pos: ball.position, vel: ball.velocity};
     }
+    teamWon(team) {
+        const bannerBackground = document.createElement("div");
+        bannerBackground.className = "bannerBackground";
+        mainDiv.appendChild(bannerBackground);
+
+        const bannerBg = document.createElement("div");
+        bannerBg.className = "bannerBg";
+        
+        const banner = document.createElement("img");
+        banner.src = "./games/tennis/banner_blue.png";
+        banner.className = "bannerImage";
+        bannerBg.appendChild(banner);
+
+        const winnerText = document.createElement("div");
+        winnerText.innerHTML = "WINNER";
+        winnerText.className = "winnerText";
+        bannerBg.appendChild(winnerText);
+
+        const winnerNames = document.createElement("div");
+        
+        let names = "";
+        for (const plr of players) {
+            if (plr.playPosition[0] == team) {
+                if (names.length > 0) {
+                    names += " & ";
+                }
+                names += plr.peer.nick;
+            }
+        }
+        winnerNames.innerHTML = names;
+        winnerNames.className = "winnerNames";
+        bannerBg.appendChild(winnerNames);
+
+        const thumb = document.createElement("img");
+        thumb.src = "./games/tennis/" + (team == player.playPosition[0]? "thumbsUp.png" : "thumbsDown.png");
+        thumb.className = "thumb";
+        bannerBg.appendChild(thumb);
+
+        mainDiv.appendChild(bannerBg);
+
+        bannerBg.addEventListener("click", () => {
+            mainDiv.removeChild(bannerBackground);
+            mainDiv.removeChild(bannerBg);
+            uninitialize();
+        });
+    }
+    /**
+     * 
+     * @param {number} team 
+     */
+    pointScored(team) {
+        this.scores[team]++;
+        this.changedState.score = this.scores;
+        if (this.scores[team] >= players.length*4 && this.scores[team]-1 > this.scores[team==0? 1 : 0]) {
+            // team has won!
+            this.teamWon(team);
+            this.changedState.teamWon = team;
+        }
+    }
     ballBounce() {
         // this is only called by server
         this.ballBounces++;
@@ -573,8 +644,7 @@ class PlayState {
                 this.attemptsToServe = 0;
                 this.serves++;
                 const team = this.getTeamOfPlayer(this.lastPlayerToServe);
-                this.scores[team == 0? 1 : 0]++;
-                this.changedState.score = this.scores;
+                this.pointScored(team == 0? 1 : 0);
             }
             fail = true;
         }
@@ -584,8 +654,7 @@ class PlayState {
             this.serves++;
             // lastPlayerToHitBall's team should get a point...
             const team = this.getTeamOfPlayer(this.lastPlayerToHitBall);
-            this.scores[team]++;
-            this.changedState.score = this.scores;
+            this.pointScored(team);
             fail = true;
         }
         if (fail) {
@@ -633,8 +702,7 @@ class PlayState {
             this.attemptsToServe = 0;
             this.serves++;
             const team = this.getTeamOfPlayer(this.lastPlayerToHitBall);
-            this.scores[team]++;
-            this.changedState.score = this.scores;
+            this.pointScored(team);
         }
         else {
             this.serves++;
@@ -646,8 +714,7 @@ class PlayState {
                 // team opposite lastPlayerToHitBall should get a point...
                 team = this.getTeamOfPlayer(this.lastPlayerToHitBall) == 0? 1 : 0;
             }
-            this.scores[team]++;
-            this.changedState.score = this.scores;
+            this.pointScored(team);
             this.ballBounces = 0;
         }
         if (this.serves >= 4) {
@@ -692,10 +759,16 @@ class PlayState {
 const playState = new PlayState();
 class Player extends Sprite {
     peer;
+    /**
+     * @type {Array.number}
+     */
     playPosition = []; // [0, 0] is team1, first player, [0,1] is same team, second player. [1,0] is second team first player, etc...
     state = PlayerState.Idle;
     lastServed = Date.now();
-    bat = new Bat();
+    /**
+     * @type {Bat}
+     */
+    bat = null;
     constructor(position, peer) {
         super(position, 32, 32, 6);
         this.peer = peer;
@@ -775,7 +848,10 @@ class Player extends Sprite {
 class Ball extends Sprite {
     velocity = new Vertex(0,0,0); // use vertex as vectors...
     state = BallState.AboutToServe;
-    player = new Player();
+    /**
+     * @type {Player}
+     */
+    player = null;
     hitByUs = false;
     images = {
         // only animation should be spinning(?) and deformation on bounce.. but just use the bouncing orange for everything for now... :-)
@@ -1578,7 +1654,10 @@ let player = new Player(); // just to let ide help us with type...
     x: -100, y: -150, // initial placement
     peer: null,
 }*/
-let players = []; // [["player1"], ["player2"]], or up to [["player1", "player3"],["player2", "player4"]]
+/**
+ * @type {Array.<Player>}
+ */
+let players = []; // [["player1", "player2"]], or up to [["player1", "player3"],["player2", "player4"]]
 const peers = [];
 let weAreServer = true;
 //let opponent = null;
@@ -1698,7 +1777,10 @@ export function onMessage(peer, data) {
     getNewState(peer, data);
 };
 
-export function initialize() {
+let parentClass = null;
+
+export function initialize(parentClss) {
+    parentClass = parentClss;
     // setup canvas etc....
     mainDiv = document.getElementById("mainDiv");
     mainDiv.style.zIndex = 0;
@@ -1745,6 +1827,8 @@ export function initialize() {
 
     // start gameloop..?MainLoop.start() ? Or in allImagesLoaded() maybe???
     console.log("initialized tennis!")
+
+    playState.teamWon(0);
 }
 
 function initializeState() {
@@ -1821,6 +1905,11 @@ function createEntities() {
     //camera = new Camera(new Vertex(0, -185, 517), new Vertex(0, 0, 0));
     //camera = new Camera(new Vertex(0, -200, 617), new Vertex(0, 350, 0));
     camera = new Camera(new Vertex(0, -1500, 1000), new Vertex(0, 800, 0));
+}
+
+function destroyEntities() {
+    camera = null;
+    entities = [];
 }
 
 function keyDown(e) {
@@ -2321,6 +2410,9 @@ function getNewState(peer, data) {
             // only server updates this...
             playState.scores = change.score;
         }
+        if (typeof(change.teamWon) != "undefined") {
+            playState.teamWon(change.teamWon);
+        }
 
     }
     
@@ -2506,10 +2598,17 @@ function onResize(event) {
 }
 
 export function uninitialize() {
-    // stop gameloop..?MainLoop.stop()
-    // remove touchDiv
+    MainLoop.stop();
+
+    playState.reset();
+    
     document.getElementById("touchDiv").remove();
-    // remove comms listeners...
+
+    mainDiv.style = "display:none";
+    mainDiv.className = "";
+    
+    destroyEntities();
+
     // remove listeners (keys/mouse/touch++)
     removeEventListener("resize", onResize);
     removeKeyListeners();
@@ -2517,9 +2616,12 @@ export function uninitialize() {
     removeTouchListeners();
     // unload images?? (possible?) (should be just to remove any references to them...)
     // remove canvas etc...
+    canvas.remove();
     // need to clean up everything so that callin initialize() again works fine (clean slate)
-    
-    //resetState();
+    players = [];
+
+    // remove comms listeners, clean up in parent script...
+    parentClass.stopGame();
 }
 
 
@@ -2531,6 +2633,6 @@ export function uninitialize() {
 // evt fun other shit... birds, ref, whatever...
 
 
-// Also, fix mobile controls (show track ball, from center of white, and more granular (further out for full speed))
+// sounds
 // Can eventually have possibility to hit players? Other fun stuff?
 

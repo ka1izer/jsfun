@@ -40,6 +40,11 @@ class Game {
     }
     stopGame() {
         document.body.classList.remove("gaming");
+        gameStarted = false;
+        this.players = [[], []];
+
+        chooseGame(this);
+        goToRoomStep();
     }
 }
 let selectedGame = null;
@@ -104,8 +109,17 @@ class Tennis extends Game {
                 module.onNewPeer(peer, weAreServer);
             }
 
-            module.initialize();
+            module.initialize(this);
         });
+    }
+
+    stopGame() {
+        super.stopGame();
+
+        setOnNewPeer( () => {});
+        setOnLoosePeer( () => {});
+        setOnMessage( () => {});
+        
     }
 }
 

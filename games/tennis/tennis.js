@@ -609,6 +609,7 @@ class PlayState {
         this.changedState.playerSwinging = plr.peer.nick;
         this.changedState.angleToBall = plr.bat.angleToBall;
         this.changedState.angleOfHit = plr.bat.angleOfHit;
+        sound.swing.s.play();
     }
     /**
      * 
@@ -635,7 +636,6 @@ class PlayState {
     }
     hit(plr) {
         // this is always called by player doing the hitting (not just server)
-        
         this.attemptsToServe = 0;
         this.lastPlayerToHitBall = plr;
         this.ballBounces = 0;
@@ -1409,6 +1409,7 @@ class Bat extends Entity {
     angleToBall = 0;
     angleOfHit = 0;
     swinging = false;
+    hitNow = false;
     constructor(plr) {
         super(new Vertex(0,0,0));
         if (plr?.position) {
@@ -1463,12 +1464,14 @@ class Bat extends Entity {
     }
 
     update(delta) {
-        if (this.swinging) {
+        if (this.swinging && !this.hitNow) {
             if (this.collidesWith(ball)) {
-                //console.log("HIT!z", ball.position.z)
+                console.log("HIT!z", ball.position.z)
                 keys.hit = 0;
                 ball.hit();
                 playState.hit(player);
+                this.hitNow = true;
+                sound.hitBall.s.play();
             }
             else {
                 playState.miss(player);
@@ -1629,6 +1632,7 @@ class Bat extends Entity {
             // on left side
             this.angleOfHit = 0.8;
         }
+        this.hitNow = false;
         this.swinging = true;
         playState.playerSwinging(player);
     }
@@ -1737,6 +1741,14 @@ const playerImages = {
 const opponentImages = {
     idle: null, running: null, hitting: null
 };
+
+const sound = {
+    music: {src: null, s: null},
+    hitBall: {src: null, s: null},
+    swing: {src: null, s: null},
+    ballBounce: {src: null, s: null},
+};
+let soundsLoaded = false;
 
 const keys = {
     left: false,
@@ -1879,7 +1891,7 @@ export function initialize(parentClss) {
     touchImg.innerHTML = '<circle class="innerCircle" cx="100" cy="100" r="30" style="fill: red; stroke: black;"></circle> <circle class="outerCircle" cx="100" cy="100" r="90" style="fill: none; stroke: red; stroke-width: 3px"></circle>';
     touchDiv.appendChild(touchImg);
 
-    // preload images/sprites
+    loadSounds();
     
     // setup listeners (keys/mouse/touch++, 
     setupKeyListeners();
@@ -1914,6 +1926,32 @@ function initializeState() {
         players[0].changeState(PlayerState.AboutToServe);
         ball.changeState(BallState.AboutToServe, players[0]);
     //}
+}
+
+function loadSounds() {
+
+    sound.swing.src = "./games/tennis/sounds/swing.mp3";
+    sound.hitBall.src = "./games/tennis/sounds/hitBall.mp3";
+    sound.ballBounce.src = "./games/tennis/sounds/ballBounce.mp3";
+
+    Sounds.sounds.load([sound.swing.src, sound.hitBall.src, sound.ballBounce.src]);
+
+    // progress...
+    /*Sounds.sounds.onProgress = function (progress, res) {
+        console.log('Total ' + progress + ' file(s) loaded.');
+        console.log('File ' + res.url + ' just finished loading.');
+      };*/
+
+    Sounds.sounds.whenLoaded = () => {
+        sound.swing.s = Sounds.sounds[sound.swing.src];
+        sound.hitBall.s = Sounds.sounds[sound.hitBall.src];
+        sound.ballBounce.s = Sounds.sounds[sound.ballBounce.src];
+        soundsLoaded = true;
+    };
+}
+
+function unLoadSounds() {
+    // seems like we have to create our on unloading if we need (sounds.js does not seem to support unloading sounds)...
 }
 
 function createEntities() {
@@ -2401,6 +2439,7 @@ function getNewState(peer, data) {
                 const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
                 plr.bat.angleOfHit = sameTeamAsUs? change.angleOfHit : -change.angleOfHit;
                 plr.bat.angleToBall = sameTeamAsUs? change.angleToBall : -change.angleToBall;
+                sound.swing.s.play(); // TODO: can change volume with: sound.swing.s.volume = 0.5; (1 = default), would like to have lower volume for far players, but would need one sound-obj per player, since volume affects all...
             }
         }
         //, {playerStoppedSwinging: nick}
@@ -2477,6 +2516,7 @@ function getNewState(peer, data) {
             if (plr != player && weAreServer) {
                 playState.hit(plr);
             }
+            sound.hitBall.s.play();
         }
         playState.confirm("hit", data.id);
     }

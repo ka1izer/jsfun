@@ -492,7 +492,7 @@ function drawScores(ctx) {
     ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
     ctx.strokeText("Us:       " + ourScore, 10, 10);
     ctx.strokeText("Them:   " + otherScore, 10, 20);
-    ctx.strokeText("To win: " + players.length*4, 10, 30);
+    ctx.strokeText("To win: " + playState.howMuchToWin(ourTeam), 10, 30);
 }
 const PlayerState = {
     AboutToServe: 0, Serving: 1, HitBall: 2, MissedBall: 3, Idle: 4
@@ -696,6 +696,30 @@ class PlayState {
             uninitialize();
         });
     }
+
+    /**
+     * 
+     * @param {number} team 
+     */
+    howMuchToWin(team) {
+        let toWin = players.length*4;
+        if (players.length == 3) {
+            // assymetric, shortest team needs 4 less points...
+            // is team the shortest team?
+            let thisTeamMembers = 0;
+            for (const plr of players) {
+                if (plr.playPosition[0] == team) {
+                    thisTeamMembers++;
+                }
+            }
+            if (thisTeamMembers == 1) {
+                // this team is the short one.
+                toWin -= 4;
+            }
+        }
+        return toWin;
+    }
+
     /**
      * 
      * @param {number} team 
@@ -703,7 +727,8 @@ class PlayState {
     pointScored(team) {
         this.scores[team]++;
         this.changedState.score = this.scores;
-        if (this.scores[team] >= players.length*4 && this.scores[team]-1 > this.scores[team==0? 1 : 0]) {
+        const toWin = this.howMuchToWin(team);
+        if (this.scores[team] >= toWin && this.scores[team]-1 > this.scores[team==0? 1 : 0]) {
             // team has won!
             this.teamWon(team);
             this.changedState.teamWon = team;
@@ -1251,6 +1276,18 @@ class Ball extends Sprite {
         }
         target.x = target.x * xFactor;
         target.y = target.y * yFactor;
+        if (target.x < -540) {
+            target.x = -540;
+        }
+        if (target.x > 540) {
+            target.x = 540;
+        }
+        if (target.y < 30) {
+            target.y = 30;
+        }
+        if (target.y > 450) {
+            target.y = 450;
+        }
         target.z = 0;
 
         // ignore click below net for now.

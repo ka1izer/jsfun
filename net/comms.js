@@ -26,11 +26,11 @@ const config = {
         //{urls: 'stun:stun.siptrunk.com:3478'},
         //{urls: 'stun:stun.easybell.de:3478'},
         //{urls: 'stun:stun.sipglobalphone.com:3478'},
-        //{urls: 'stun:stun4.l.google.com:19305'},
+        {urls: 'stun:stun4.l.google.com:19305'},
         //{urls: 'stun:stun.l.google.com:19305'},
         {urls: 'stun:stun.l.google.com:19302'},
 
-        {urls: 'stun:stun.ekiga.net'}, // port 80
+        //{urls: 'stun:stun.ekiga.net'}, // port 80
         
         // try without turn first, out of curiosity.... And with turn, check ping...
         //{urls: 'stun:freeturn.net:5349' },

@@ -609,7 +609,9 @@ class PlayState {
         this.changedState.playerSwinging = plr.peer.nick;
         this.changedState.angleToBall = plr.bat.angleToBall;
         this.changedState.angleOfHit = plr.bat.angleOfHit;
-        sound.swing.s.play();
+        if (soundsLoaded) {
+            sound.swing.s.play();
+        }
     }
     /**
      * 
@@ -679,6 +681,12 @@ class PlayState {
         thumb.src = "./games/tennis/" + (team == player.playPosition[0]? "thumbsUp.png" : "thumbsDown.png");
         thumb.className = "thumb";
         bannerBg.appendChild(thumb);
+        if (team == player.playPosition[0]) {
+            sound.win.s.play();
+        }
+        else {
+            sound.lose.s.play();
+        }
 
         mainDiv.appendChild(bannerBg);
 
@@ -1102,6 +1110,9 @@ class Ball extends Sprite {
                 if (weAreServer) {
                     playState.ballBounce();
                 }
+                if (soundsLoaded) {
+                    sound.ballBounce.s.play();
+                }
             }
             if (this.position.z == 0 && this.velocity.z == 0) {
                 ball.changeState(BallState.AtRest);
@@ -1471,7 +1482,9 @@ class Bat extends Entity {
                 ball.hit();
                 playState.hit(player);
                 this.hitNow = true;
-                sound.hitBall.s.play();
+                if (soundsLoaded) {
+                    sound.hitBall.s.play();
+                }
             }
             else {
                 playState.miss(player);
@@ -1747,6 +1760,8 @@ const sound = {
     hitBall: {src: null, s: null},
     swing: {src: null, s: null},
     ballBounce: {src: null, s: null},
+    win: {src: null, s: null},
+    lose: {src: null, s: null},
 };
 let soundsLoaded = false;
 
@@ -1933,8 +1948,10 @@ function loadSounds() {
     sound.swing.src = "./games/tennis/sounds/swing.mp3";
     sound.hitBall.src = "./games/tennis/sounds/hitBall.mp3";
     sound.ballBounce.src = "./games/tennis/sounds/ballBounce.mp3";
+    sound.win.src = "./games/tennis/sounds/win.mp3";
+    sound.lose.src = "./games/tennis/sounds/lose.mp3";
 
-    Sounds.sounds.load([sound.swing.src, sound.hitBall.src, sound.ballBounce.src]);
+    Sounds.sounds.load([sound.swing.src, sound.hitBall.src, sound.ballBounce.src, sound.win.src, sound.lose.src]);
 
     // progress...
     /*Sounds.sounds.onProgress = function (progress, res) {
@@ -1946,6 +1963,8 @@ function loadSounds() {
         sound.swing.s = Sounds.sounds[sound.swing.src];
         sound.hitBall.s = Sounds.sounds[sound.hitBall.src];
         sound.ballBounce.s = Sounds.sounds[sound.ballBounce.src];
+        sound.win.s = Sounds.sounds[sound.win.src];
+        sound.lose.s = Sounds.sounds[sound.lose.src];
         soundsLoaded = true;
     };
 }
@@ -2439,7 +2458,9 @@ function getNewState(peer, data) {
                 const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
                 plr.bat.angleOfHit = sameTeamAsUs? change.angleOfHit : -change.angleOfHit;
                 plr.bat.angleToBall = sameTeamAsUs? change.angleToBall : -change.angleToBall;
-                sound.swing.s.play(); // TODO: can change volume with: sound.swing.s.volume = 0.5; (1 = default), would like to have lower volume for far players, but would need one sound-obj per player, since volume affects all...
+                if (soundsLoaded) {
+                    sound.swing.s.play(); // TODO: can change volume with: sound.swing.s.volume = 0.5; (1 = default), would like to have lower volume for far players, but would need one sound-obj per player, since volume affects all...
+                }
             }
         }
         //, {playerStoppedSwinging: nick}
@@ -2513,10 +2534,12 @@ function getNewState(peer, data) {
             ball.changeState(BallState.InPlay);
             ball.updatePos(sameTeamAsUs, change.ball.pos);
             ball.updateVel(sameTeamAsUs, change.ball.vel);
-            if (plr != player && weAreServer) {
+            if (weAreServer) {
                 playState.hit(plr);
             }
-            sound.hitBall.s.play();
+            if (soundsLoaded) {
+                sound.hitBall.s.play();
+            }
         }
         playState.confirm("hit", data.id);
     }
@@ -2744,6 +2767,9 @@ export function uninitialize() {
     removeMouseListeners();
     removeTouchListeners();
     // unload images?? (possible?) (should be just to remove any references to them...)
+
+    unLoadSounds(); // does nothing for now...
+
     // remove canvas etc...
     canvas.remove();
     // need to clean up everything so that callin initialize() again works fine (clean slate)
@@ -2762,6 +2788,5 @@ export function uninitialize() {
 // evt fun other shit... birds, ref, whatever...
 
 
-// sounds
-// Can eventually have possibility to hit players? Other fun stuff?
+// Can eventually have possibility to hit players? Other fun stuff? powerups?
 

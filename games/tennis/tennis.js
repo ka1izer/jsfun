@@ -490,9 +490,9 @@ function drawScores(ctx) {
     const otherScore = playState.scores[otherTeam];
 
     ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
-    ctx.strokeText("Us:       " + ourScore, 10, 10);
-    ctx.strokeText("Them:   " + otherScore, 10, 20);
-    ctx.strokeText("To win: " + playState.howMuchToWin(ourTeam), 10, 30);
+    ctx.strokeText("Us:       " + ourScore + "   / " + playState.howMuchToWin(ourTeam), 10, 10);
+    ctx.strokeText("Them:   " + otherScore + "   / " + playState.howMuchToWin(otherTeam), 10, 20);
+    //ctx.strokeText("To win : " + playState.howMuchToWin(ourTeam), 10, 30);
 }
 const PlayerState = {
     AboutToServe: 0, Serving: 1, HitBall: 2, MissedBall: 3, Idle: 4

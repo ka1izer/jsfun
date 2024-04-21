@@ -1,5 +1,8 @@
 import { MainLoop } from '../../libs/gameloop.js';
 import { Quaternion } from '../../libs/quaternion.js';
+import * as Sounds from '../../libs/sound.js';
+
+
 
 // runs at the beginning of each frame and is typically used to process input
 MainLoop.setBegin( (timestamp, frameDelta) => {
@@ -516,11 +519,77 @@ class PlayState {
     scores = [0,0]; // scores for team1 and team2...
     changedState = {}; // {playerMoved: nick, pos}, {aboutToServe: nick}, {serving: nick, ball:{pos, vel}}, {hit: nick, ball:{pos, vel}}, {score: [1,0]}, {newPlayerToServe: nick} , {aboutToServe: nick}, {playerSwinging: nick, angleToBall, angleOfHit}, {playerStoppedSwinging: nick}
 
+    /**
+     * @type {{type: string, value: any, id: number, peer: {nick: string, channel: RTCDataChannel}, when: number}[]}
+     */
+    awaitingConfirmation = [];
+
     playerMoved(plr) {
         // can get multiple of these between times we send(?), so should maybe use array or something here...?
         this.changedState.playerMoved = plr.peer.nick; // should prolly change to send keys/touch-equiv instead, with position only occasionally, but...
         this.changedState.pos = plr.position;
     }
+
+    /**
+     * 
+     * @param {string} type 
+     * @param {number} packageId 
+     */
+    confirm(type, packageId) {
+        if (!this.changedState.confirm) {
+            this.changedState.confirm = {};
+        }
+        this.changedState.confirm[type] = packageId;
+    }
+
+    /**
+     * 
+     * @param {{changedState: object, id: number}} state 
+     * @param {{nick: string, channel: RTCDataChannel}} peer 
+     */
+    mayNeedConfirmation(state, peer) {
+        // state: {changedState: prunedState, id: toSend.id}
+        const requireConfirmation = ["teamWon", "score", "hit", "serving", "aboutToServe"];
+        for (const key of Object.keys(state.changedState)) {
+            if (requireConfirmation.includes(key)) {
+                // requires confirmation...
+                this.awaitingConfirmation.push({type: key, value: state.changedState[key], id: state.id, peer: peer, when: Date.now()});
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {{nick: string, channel: RTCDataChannel}} peer 
+     */
+    resendUnconfirmed(peer) {
+        const tooOld = Date.now() - 300;
+        for (const ob of this.awaitingConfirmation) {
+            if (ob.peer.nick == peer.nick && ob.when <= tooOld) {
+                /*const state = {};
+                state[ob.type] = ob.value;*/
+                ob.peer.channel.send(JSON.stringify({changedState: ob.value, id: ob.id}));
+                ob.when = Date.now();
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {string} type 
+     * @param {number} id 
+     * @param {{nick: string, channel: RTCDataChannel}} peer 
+     */
+    receivedConfirmation(type, id, peer) {
+        for (let i = this.awaitingConfirmation.length - 1; i >= 0; i--) {
+            const ob = this.awaitingConfirmation[i];
+            if (ob.peer.nick == peer.nick && ob.type == type && id == ob.id) {
+                this.awaitingConfirmation.slice(i, 1);
+                return;
+            }
+        }
+    }
+    
 
     reset() {
         this.gameState = GameState.AboutToServe;
@@ -2300,12 +2369,13 @@ function getNewState(peer, data) {
             }
         }
     }*/
+    const change = data.changedState;
+    //console.log("change", change, data.id)
+
+    // playerMoved, playerSwinging, playerStoppedSwinging are non-essential, don't need confirmation, but discard old packages, since they are outdated
+    
     if (!peer.packageId || data.id > peer.packageId) { // make sure its a new package
         peer.packageId = data.id;
-
-        const change = data.changedState;
-        //console.log("change", change, data.id)
-        
         // {playerMoved: nick, pos}, {aboutToServe: nick}, {serving: nick, ball:{pos, vel}}, {hit: nick, ball:{pos, vel}}, {score: [1,0]}
         if (change.playerMoved) {
             // {playerMoved: nick, pos}
@@ -2340,88 +2410,100 @@ function getNewState(peer, data) {
             plr.bat.angleOfHit = 0;
             plr.bat.angleToBall = 0;
         }
-        if (change.aboutToServe) {
-            // {aboutToServe: nick}
-            const plr = findPlayerByNick(change.aboutToServe);
+    }
+    // these next are essential, and we need to send confirmation that they have been received! If sender does not receive delivery confirmation within x ms (or something?), sender sends new copy of message
+    if (change.aboutToServe) {
+        // {aboutToServe: nick}
+        const plr = findPlayerByNick(change.aboutToServe);
 
-            playState.lastPlayerToServe = plr;
-            
-            // make sure other players are set to idle
-            for (const p of players) {
-                if (p != plr) {
-                    p.changeState(PlayerState.Idle);
-                }
-            }
-            
-            if (plr.state != PlayerState.AboutToServe) {
-                plr.changeState(PlayerState.AboutToServe);
-                ball.changeState(BallState.AboutToServe, plr);
-                /*if (plr != player && weAreServer) {
-                    playState.aboutToServe(plr);
-                }*/
-            }
-        }
-        if (change.serving) {
-            //{serving: nick, ball:{pos, vel}}
-            const plr = findPlayerByNick(change.serving);
-            playState.lastPlayerToServe = playState.lastPlayerToHitBall = plr;
-
-            // make sure other players are set to idle
-            for (const p of players) {
-                if (p != plr) {
-                    p.changeState(PlayerState.Idle);
-                }
-            }
-
-            if (plr != player && plr.state != PlayerState.Idle) {
-                plr.changeState(PlayerState.Idle);
-                const peerPlayPos = findPlayPositionOfPeer(peer);
-                const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
-                ball.changeState(BallState.InPlay);
-                ball.updatePos(sameTeamAsUs, change.ball.pos);
-                ball.updateVel(sameTeamAsUs, change.ball.vel);
-                if (plr != player && weAreServer) {
-                    playState.serving(plr);
-                }
-            }
-        }
-        if (change.hit) {
-            //{hit: nick, ball:{pos, vel}}
-            const plr = findPlayerByNick(change.hit);
-            playState.lastPlayerToHitBall = plr;
-
-            // make sure all players are set to idle
-            for (const p of players) {
+        playState.lastPlayerToServe = plr;
+        
+        // make sure other players are set to idle
+        for (const p of players) {
+            if (p != plr) {
                 p.changeState(PlayerState.Idle);
             }
-            if (plr != player) {
-                const peerPlayPos = findPlayPositionOfPeer(peer);
-                const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
-                ball.changeState(BallState.InPlay);
-                ball.updatePos(sameTeamAsUs, change.ball.pos);
-                ball.updateVel(sameTeamAsUs, change.ball.vel);
-                if (plr != player && weAreServer) {
-                    playState.hit(plr);
-                }
+        }
+        
+        if (plr.state != PlayerState.AboutToServe) {
+            plr.changeState(PlayerState.AboutToServe);
+            ball.changeState(BallState.AboutToServe, plr);
+            /*if (plr != player && weAreServer) {
+                playState.aboutToServe(plr);
+            }*/
+        }
+        playState.confirm("aboutToServe", data.id);
+    }
+    if (change.serving) {
+        //{serving: nick, ball:{pos, vel}}
+        const plr = findPlayerByNick(change.serving);
+        playState.lastPlayerToServe = playState.lastPlayerToHitBall = plr;
+
+        // make sure other players are set to idle
+        for (const p of players) {
+            if (p != plr) {
+                p.changeState(PlayerState.Idle);
             }
         }
-        if (change.score) {
-            //{score: [1,0]}
-            // only server updates this...
-            playState.scores = change.score;
-        }
-        if (typeof(change.teamWon) != "undefined") {
-            playState.teamWon(change.teamWon);
-        }
 
+        if (plr != player && plr.state != PlayerState.Idle) {
+            plr.changeState(PlayerState.Idle);
+            const peerPlayPos = findPlayPositionOfPeer(peer);
+            const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
+            ball.changeState(BallState.InPlay);
+            ball.updatePos(sameTeamAsUs, change.ball.pos);
+            ball.updateVel(sameTeamAsUs, change.ball.vel);
+            if (plr != player && weAreServer) {
+                playState.serving(plr);
+            }
+        }
+        playState.confirm("serving", data.id);
+    }
+    if (change.hit) {
+        //{hit: nick, ball:{pos, vel}}
+        const plr = findPlayerByNick(change.hit);
+        playState.lastPlayerToHitBall = plr;
+
+        // make sure all players are set to idle
+        for (const p of players) {
+            p.changeState(PlayerState.Idle);
+        }
+        if (plr != player) {
+            const peerPlayPos = findPlayPositionOfPeer(peer);
+            const sameTeamAsUs = peerPlayPos[0] == player.playPosition[0];
+            ball.changeState(BallState.InPlay);
+            ball.updatePos(sameTeamAsUs, change.ball.pos);
+            ball.updateVel(sameTeamAsUs, change.ball.vel);
+            if (plr != player && weAreServer) {
+                playState.hit(plr);
+            }
+        }
+        playState.confirm("hit", data.id);
+    }
+    if (change.score) {
+        //{score: [1,0]}
+        // only server updates this...
+        playState.scores = change.score;
+        playState.confirm("score", data.id);
+    }
+    if (typeof(change.teamWon) != "undefined") {
+        playState.teamWon(change.teamWon);
+        playState.confirm("teamWon", data.id);
+    }
+
+    if (change.confirm) {
+        //{confirm: {score|hit|etc: id}} (can be multiple... ex: {confirm: {score: 1, hit: 1....})
+        for (const key of Object.keys(change.confirm)) {
+            playState.receivedConfirmation(key, change.confirm[key], peer);
+        }
     }
     
 }
 
 let packageId = 1;
-let prevPackage = null;
+//let prevPackage = null;
 function sendNewState() {
-    if (prevPackage != null) {
+    /*if (prevPackage != null) {
         // send twice for redundancy... :-) recipient should throw away duplicate packages (by id)
         if (weAreServer) {
             peers.forEach(p => {
@@ -2457,7 +2539,7 @@ function sendNewState() {
         }
         
         prevPackage = null;
-    }
+    }*/
     if (Object.keys(playState.changedState).length > 0) {
         const state = {changedState: playState.changedState, id: packageId};
         const toSend = JSON.stringify(state);
@@ -2491,12 +2573,17 @@ function sendNewState() {
                         }
                     }
                     if (Object.keys(prunedState).length > 0) {
-                        p.channel.send(JSON.stringify({changedState: prunedState, id: toSend.id}));
+                        const prunedStateToSend = {changedState: prunedState, id: toSend.id};
+                        p.channel.send(JSON.stringify(prunedStateToSend));
+                        playState.mayNeedConfirmation(prunedStateToSend, p);
+                        playState.resendUnconfirmed(p);
                     }
                 }
                 else {
                     p.channel.send(toSend);
-                    prevPackage = state;
+                    //prevPackage = state;
+                    playState.mayNeedConfirmation(state, p);
+                    playState.resendUnconfirmed(p);
                 }
             });
         }
@@ -2512,7 +2599,9 @@ function sendNewState() {
             }
             peers[0].channel.send(JSON.stringify({player: { pos: player.position}, ball: ballData, (serving/hitting/etc..) }));*/
             peers[0].channel.send(toSend);
-            prevPackage = state;
+            playState.mayNeedConfirmation(state, peers[0]);
+            playState.resendUnconfirmed(peers[0]);
+            //prevPackage = state;
         }
         packageId++;
         playState.changedState = {};

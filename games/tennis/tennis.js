@@ -728,7 +728,10 @@ class PlayState {
         this.scores[team]++;
         this.changedState.score = this.scores;
         const toWin = this.howMuchToWin(team);
-        if (this.scores[team] >= toWin && this.scores[team]-1 > this.scores[team==0? 1 : 0]) {
+        const toWinOtherTeam = this.howMuchToWin(team == 0? 1 : 0);
+        const overScore = this.scores[team] - toWin;
+        const otherOverScore = this.scores[team == 0? 1: 0] - toWinOtherTeam;
+        if (this.scores[team] >= toWin && overScore-1 > otherOverScore) {
             // team has won!
             this.teamWon(team);
             this.changedState.teamWon = team;

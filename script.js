@@ -26,12 +26,19 @@ class Game {
     remove(peer) {
         console.log("remove", peer, this.players);
         for (const team of this.players) {
-            const index = team.indexOf(peer);
+            /*const index = team.indexOf(peer);
             console.log("index", index);
             if (index > -1) {
                 team.splice(index, 1);
                 console.log("found!, removed", team);
                 return;
+            }*/
+            for (let i=0; i < team.length; i++) {
+                const plr = team[i];
+                if (plr.nick == peer.nick) {
+                    team.splice(i, 1);
+                    return;
+                }
             }
         }
     }
@@ -47,6 +54,9 @@ class Game {
         goToRoomStep();
     }
 }
+/**
+ * @type {Game}
+ */
 let selectedGame = null;
 let gameStarted = false;
 
@@ -123,6 +133,81 @@ class Tennis extends Game {
     }
 }
 
+class LearnToDrive extends Game {
+    constructor() {
+        super("learnToDrive", "Learn To Drive", 1, 6);
+        this.players = [[]]; // initialize players
+        // should load image for this game...
+    }
+
+    add(peer) {
+        console.log("add", peer)
+        this.players[0].push(peer);
+    }
+
+    remove(peer) {
+        /*const index = this.players[0].indexOf(peer);
+        console.log("players", this.players[0])
+        if (index >= 0) {
+            console.log("FOUND")
+            this.players[0].splice(index, 1);
+        }*/
+        for (let i=0; i < this.players[0].length; i++) {
+            const plr = this.players[0][i];
+            if (plr.nick == peer.nick) {
+                this.players[0].splice(i, 1);
+                return;
+            }
+        }
+    }
+
+    startGame() {
+        super.startGame();
+        import("./games/learnToDrive/learnToDrive.js").then((module) => {
+
+            // show canvas and hide others
+            hideForms();
+            document.getElementById("mainDiv").style.display = "";
+
+            setOnNewPeer( (peer, areWeServer) => {
+                console.log("onNewPeerrer!",peer);
+                console.log("we are server?", areWeServer);
+                module.onNewPeer(peer, areWeServer);
+            });
+            
+            setOnLoosePeer(peer => {
+                console.log("lost pewer", peer);
+                module.onLostPeer(peer);
+            });
+            
+            setOnMessage((peer, data) => {
+                //console.log("got message", data);
+                module.onMessage(peer, data);
+            });
+    
+            // SHould send players! also peers, but dont handle peers as players! And we already have teams defined, so send with those!
+            // Next step is to properify the tennis game, to handle players properly and stuff. After that we can look at actual gameplay, with ball etc...
+            console.log("players, peers", this.players, peers);
+            module.setPlayers(this.players, weAreServer, nick);
+            // send peers...
+            for (const peer of peers) {
+                module.onNewPeer(peer, weAreServer);
+            }
+
+            module.initialize(this);
+        });
+    }
+
+    stopGame() {
+        super.stopGame();
+
+        setOnNewPeer( () => {});
+        setOnLoosePeer( () => {});
+        setOnMessage( () => {});
+        
+    }
+}
+
 function startGame(gameToPlay) {
     // find lockedIn game and start it...
     if (weAreServer) {
@@ -133,7 +218,7 @@ function startGame(gameToPlay) {
     game.startGame();
 }
 
-const games = [new Tennis()];
+const games = [new Tennis(), new LearnToDrive()];
 
 
 let roomId = null;
@@ -220,12 +305,12 @@ function onMessage(peer, data) {
             game.add(peer);
             renderGames();
         }
-        else if (data.unChoseGame) {
+        if (data.unChoseGame) {
             const game = findGameById(data.unChoseGame);
             game.remove(peer);
             renderGames();
         }
-        else if (data.lockSelection || data.lockSelection === false) {
+        if (data.lockSelection || data.lockSelection === false) {
             const actualPeer = findPeerByNick(peer.nick);
             actualPeer.lockedIn = data.lockSelection;
             const gameToPlayNow = readyToPlayGame();
@@ -463,10 +548,15 @@ function renderGames() {
     }
 }
 
+/**
+ * 
+ * @param {Game} game 
+ */
 function chooseGame(game) {
     if (lockedGame) {
         lockInGame(); // unlock
     }
+    console.log("thisPeer", thisPeer)
     const lockButt = document.getElementById("lockInGame");
     if (selectedGame == game) {
         selectedGame = null;
@@ -483,12 +573,19 @@ function chooseGame(game) {
         }
     }
     else {
+        let unSelectGame = null;
+        if (selectedGame) {
+            unSelectGame = selectedGame.id;
+            // remove from prev game...
+            selectedGame.remove(thisPeer);
+        }
+
         selectedGame = game;
         game.add(thisPeer);
         lockButt.style.display = "";
         if (!weAreServer) {
             peers.forEach(p => {
-                p.channel.send(JSON.stringify({lobby:true, choseGame: game.id}));
+                p.channel.send(JSON.stringify({lobby:true, unChoseGame: unSelectGame, choseGame: game.id}));
             });
         }
         else {

@@ -59,8 +59,10 @@ MainLoop.setDraw(interpolationPercentage => {
 
     drawScores(ctx);
 });
+let lastFps = 0;
 // runs at the end of each frame and is typically used for cleanup tasks such as adjusting the visual quality based on the frame rate.
 MainLoop.setEnd( (fps, panic) => {
+    lastFps = fps;
     sendNewState(); // no need to send in update(), is it? Once each frame should be enough, surely?
 
     if (panic) {
@@ -492,7 +494,9 @@ function drawScores(ctx) {
     ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
     ctx.strokeText("Us:       " + ourScore + "   / " + playState.howMuchToWin(ourTeam), 10, 10);
     ctx.strokeText("Them:   " + otherScore + "   / " + playState.howMuchToWin(otherTeam), 10, 20);
+    
     //ctx.strokeText("To win : " + playState.howMuchToWin(ourTeam), 10, 30);
+    ctx.strokeText("FPS: " + lastFps, 10, 35);
 }
 const PlayerState = {
     AboutToServe: 0, Serving: 1, HitBall: 2, MissedBall: 3, Idle: 4
@@ -1456,7 +1460,7 @@ class Net extends Sprite {
 }
 class Bat extends Entity {
     plr = null;
-    offsetFromPlayer = new Vertex(40, 10, 80);
+    offsetFromPlayer = new Vertex(30, 10, 80);
     angleToBall = 0;
     angleOfHit = 0;
     swinging = false;
@@ -1484,7 +1488,43 @@ class Bat extends Entity {
             [this.vertices[3], this.vertices[2], this.vertices[6], this.vertices[7]], // near side
             [this.vertices[1], this.vertices[0], this.vertices[4], this.vertices[5]], // far side
         ]
-        this.size = 20;
+        /*this.vertices = [
+            new Vertex(-2, 1, 10),  //0
+            new Vertex(2, 1, 10),   //1
+            new Vertex(2, -1, 10),  //2
+            new Vertex(-2, -1, 10), //3
+            
+            new Vertex(-4, 1, 8),  //4
+            new Vertex(4, 1, 8),   //5
+            new Vertex(4, -1, 8),  //6
+            new Vertex(-4, -1, 8), //7
+
+            new Vertex(-5, 1, 7),  //8
+            new Vertex(5, 1, 7),   //9
+            new Vertex(5, -1, 7),  //10
+            new Vertex(-5, -1, 7), //11
+
+            new Vertex(-4, 1, 6),  //12
+            new Vertex(4, 1, 6),   //13
+            new Vertex(4, -1, 6),  //14
+            new Vertex(-4, -1, 6), //15
+            
+            new Vertex(-1, 1, -10), //16
+            new Vertex(1, 1, -10),  //17
+            new Vertex(1, -1, -10), //18
+            new Vertex(-1, -1, -10),//19
+        ];
+        this.faces = [
+            [this.vertices[0], this.vertices[1], this.vertices[2], this.vertices[3]], // top
+            [this.vertices[4], this.vertices[5], this.vertices[6], this.vertices[7]], // bottom
+            
+            [this.vertices[0], this.vertices[3], this.vertices[7], this.vertices[4]], // left side
+            [this.vertices[1], this.vertices[2], this.vertices[6], this.vertices[5]], // right side
+            
+            [this.vertices[3], this.vertices[2], this.vertices[6], this.vertices[7]], // near side
+            [this.vertices[1], this.vertices[0], this.vertices[4], this.vertices[5]], // far side
+        ]*/
+        this.size = 12;
         this.plr = plr;
         //this.boundingRect = new BoundingRectangle(new Vertex(0,0,0), this.vertices.map(v => new Vertex(v.x * this.size, v.y * this.size, v.z * this.size)));
         this.boundingRect = new BoundingRectangle(new Vertex(0,0,0), null, this.size * 10, 10 * this.size);

@@ -369,6 +369,10 @@ class Entity {
 
             arrDrawOps.push({z:p.z, draw: () => {
 
+                ctx.save();
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillStyle = 'rgba(250,250,210, 0.4)';
+
                 ctx.beginPath();
                 // draw first vertex
                 ctx.moveTo(p.x + dx, -p.y + dy);
@@ -398,6 +402,8 @@ class Entity {
                 ctx.closePath();
                 ctx.stroke();
                 ctx.fill(); // may want to turn this off, or set transparent fill color or something...
+
+                ctx.restore();
             } } );
         }
     }
@@ -1460,7 +1466,7 @@ class Net extends Sprite {
 }
 class Bat extends Entity {
     plr = null;
-    offsetFromPlayer = new Vertex(30, 10, 80);
+    offsetFromPlayer = new Vertex(30, 5, 80);
     angleToBall = 0;
     angleOfHit = 0;
     swinging = false;
@@ -1470,7 +1476,7 @@ class Bat extends Entity {
         if (plr?.position) {
             this.position.set(plr.position.x + this.offsetFromPlayer.x, plr.position.y + this.offsetFromPlayer.y, plr.position.z + this.offsetFromPlayer.z);
         }
-        this.vertices = [
+        /*this.vertices = [
             new Vertex(-1, 1, 10),  //0
             new Vertex(1, 1, 10),   //1
             new Vertex(1, -1, 10),  //2
@@ -1487,43 +1493,67 @@ class Bat extends Entity {
             [this.vertices[1], this.vertices[2], this.vertices[6], this.vertices[5]], // right side
             [this.vertices[3], this.vertices[2], this.vertices[6], this.vertices[7]], // near side
             [this.vertices[1], this.vertices[0], this.vertices[4], this.vertices[5]], // far side
-        ]
-        /*this.vertices = [
-            new Vertex(-2, 1, 10),  //0
-            new Vertex(2, 1, 10),   //1
-            new Vertex(2, -1, 10),  //2
-            new Vertex(-2, -1, 10), //3
+        ]*/
+        this.vertices = [
+            new Vertex(-2, 0.5, 10),  //0
+            new Vertex(2, 0.5, 10),   //1
+            new Vertex(2, -0.5, 10),  //2
+            new Vertex(-2, -0.5, 10), //3
             
-            new Vertex(-4, 1, 8),  //4
-            new Vertex(4, 1, 8),   //5
-            new Vertex(4, -1, 8),  //6
-            new Vertex(-4, -1, 8), //7
+            new Vertex(-4, 0.5, 8),  //4
+            new Vertex(4, 0.5, 8),   //5
+            new Vertex(4, -0.5, 8),  //6
+            new Vertex(-4, -0.5, 8), //7
 
-            new Vertex(-5, 1, 7),  //8
-            new Vertex(5, 1, 7),   //9
-            new Vertex(5, -1, 7),  //10
-            new Vertex(-5, -1, 7), //11
+            new Vertex(-5, 0.5, 7),  //8
+            new Vertex(5, 0.5, 7),   //9
+            new Vertex(5, -0.5, 7),  //10
+            new Vertex(-5, -0.5, 7), //11
 
-            new Vertex(-4, 1, 6),  //12
-            new Vertex(4, 1, 6),   //13
-            new Vertex(4, -1, 6),  //14
-            new Vertex(-4, -1, 6), //15
+            new Vertex(-4, 0.5, 2),  //12
+            new Vertex(4, 0.5, 2),   //13
+            new Vertex(4, -0.5, 2),  //14
+            new Vertex(-4, -0.5, 2), //15
+
+            new Vertex(-1, 0.5, 0),  //16
+            new Vertex(1, 0.5, 0),   //17
+            new Vertex(1, -0.5, 0),  //18
+            new Vertex(-1, -0.5, 0), //19
             
-            new Vertex(-1, 1, -10), //16
-            new Vertex(1, 1, -10),  //17
-            new Vertex(1, -1, -10), //18
-            new Vertex(-1, -1, -10),//19
+            new Vertex(-1, 0.5, -10), //20
+            new Vertex(1, 0.5, -10),  //21
+            new Vertex(1, -0.5, -10), //22
+            new Vertex(-1, -0.5, -10),//23
         ];
         this.faces = [
             [this.vertices[0], this.vertices[1], this.vertices[2], this.vertices[3]], // top
-            [this.vertices[4], this.vertices[5], this.vertices[6], this.vertices[7]], // bottom
+            [this.vertices[20], this.vertices[21], this.vertices[22], this.vertices[23]], // bottom
             
-            [this.vertices[0], this.vertices[3], this.vertices[7], this.vertices[4]], // left side
-            [this.vertices[1], this.vertices[2], this.vertices[6], this.vertices[5]], // right side
+            [this.vertices[0], this.vertices[3], this.vertices[7], this.vertices[4]], // 1st left side
+            [this.vertices[4], this.vertices[7], this.vertices[11], this.vertices[8]], // 2nd left side
+            [this.vertices[8], this.vertices[11], this.vertices[15], this.vertices[12]], // 3rd left side
+            [this.vertices[12], this.vertices[15], this.vertices[19], this.vertices[16]], // 4th left side
+            [this.vertices[16], this.vertices[19], this.vertices[23], this.vertices[20]], // 5th left side
+
+            [this.vertices[1], this.vertices[2], this.vertices[6], this.vertices[5]], // 1st right side
+            [this.vertices[5], this.vertices[6], this.vertices[10], this.vertices[9]], // 2nd right side
+            [this.vertices[9], this.vertices[10], this.vertices[14], this.vertices[13]], // 3rd right side
+            [this.vertices[13], this.vertices[14], this.vertices[18], this.vertices[17]], // 4th right side
+            [this.vertices[17], this.vertices[18], this.vertices[22], this.vertices[21]], // 5th right side
             
-            [this.vertices[3], this.vertices[2], this.vertices[6], this.vertices[7]], // near side
-            [this.vertices[1], this.vertices[0], this.vertices[4], this.vertices[5]], // far side
-        ]*/
+            /*[this.vertices[3], this.vertices[2], this.vertices[6], this.vertices[7]], // near side
+            [this.vertices[1], this.vertices[0], this.vertices[4], this.vertices[5]], // far side*/
+            [this.vertices[3], this.vertices[2], 
+            this.vertices[6], this.vertices[10],this.vertices[14], this.vertices[18], 
+            this.vertices[22], this.vertices[23],
+            this.vertices[19], this.vertices[15],this.vertices[11], this.vertices[7], 
+            ], // near side
+            [this.vertices[1], this.vertices[0], 
+            this.vertices[4], this.vertices[8], this.vertices[12], this.vertices[16],
+            this.vertices[20], this.vertices[21],
+            this.vertices[17], this.vertices[13], this.vertices[9], this.vertices[5]
+            ], // far side
+        ]
         this.size = 12;
         this.plr = plr;
         //this.boundingRect = new BoundingRectangle(new Vertex(0,0,0), this.vertices.map(v => new Vertex(v.x * this.size, v.y * this.size, v.z * this.size)));
@@ -1542,7 +1572,9 @@ class Bat extends Entity {
         }
         const playerIndex = arrDrawOps.length-1;
         const playerZ = arrDrawOps[playerIndex].z;
+
         super.draw(ctx, arrDrawOps, dx, dy);
+
         // make sure bat is drawn in front of player: (HACKY AS F...)
         let adjustBy = 0.05;
         if (this.plr.playPosition[0] != player.playPosition[0]) {

@@ -39,7 +39,7 @@
             <label>Room id: <h1 id="roomId" class="roomId"></h1></label>
             <button id="leaveRoom">Leave</button><br><br>
             <!--<div id="roomIdQR"></div>-->
-            <div>Version 0.47</div>
+            <div>Version 0.48</div>
             <label>Other players can open site and input room id, or just scan qr-code and join directly</label>
             <img id="roomIdQR" class="qrImage">
             <button id="showQr" style="display: none;">Show QR code</button>
@@ -82,7 +82,7 @@
         </div>
         <div id="mainDiv" style="display:none"></div>
         <script type="module">
-            import {changeNick, createRoom, joinRoom, joinRoomByCode, leaveRoom, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?47';
+            import {changeNick, createRoom, joinRoom, joinRoomByCode, leaveRoom, hideQRCode, showQRCode, scanQR, disconnect, becomeServer, goToNickStep, lockInGame} from './script.js?48';
             document.getElementById("nickForm").addEventListener('submit', changeNick);
             document.getElementById("createRoom").addEventListener('click', createRoom);
             document.getElementById("joinRoom").addEventListener('click', joinRoom);

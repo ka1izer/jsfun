@@ -103,7 +103,9 @@ export function initialize(parentClss) {
     canvas.style.zIndex = 1;
     mainDiv.appendChild(canvas);
 
-    
+    // set dash + gear base as background image, figure out how/where to place the rest ()
+    // need different layout than tennis. Want dash and stuff on the bottom, with race track above...
+
     /*// set background image on mainDiv (tennis court)
     mainDiv.style.backgroundImage = "url('./games/tennis/background_court.jpg')";
 

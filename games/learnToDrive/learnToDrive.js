@@ -93,7 +93,7 @@ let parentClass = null;
 
 export function initialize(parentClss) {
     parentClass = parentClss;
-    /*// setup canvas etc....
+    // setup canvas etc....
     mainDiv = document.getElementById("mainDiv");
     mainDiv.style.zIndex = 0;
     mainDiv.className = "fullsize fullsizeImage";
@@ -104,7 +104,7 @@ export function initialize(parentClss) {
     mainDiv.appendChild(canvas);
 
     
-    // set background image on mainDiv (tennis court)
+    /*// set background image on mainDiv (tennis court)
     mainDiv.style.backgroundImage = "url('./games/tennis/background_court.jpg')";
 
     touchDiv = document.createElement("div");

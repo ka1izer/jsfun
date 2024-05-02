@@ -1833,20 +1833,11 @@ let canvasHeight = null;
  */
 let canvasWidth = null;
 
-let xRatio = null;
-let yRatio = null;
-
-const playArea = {
-    sX: 700*2.4,
-    sY: 700*1.0,
-    sZ: 1000
-};
-
 
 /*const player = {
     x: playArea.sX/2, y: 600, // initial placement
 }*/
-let player = new Player(); // just to let ide help us with type...
+let player = new Player();
 /*const opponent = {
     //x: playArea.sX/2-100, y: 150, // initial placement
     x: -100, y: -150, // initial placement

@@ -44,6 +44,7 @@ class Game {
     }
     startGame() {
         gameStarted = true;
+        document.getElementsByTagName("body").item(0).classList.add("inGame");
     }
     stopGame() {
         document.body.classList.remove("gaming");
@@ -52,6 +53,7 @@ class Game {
 
         chooseGame(this);
         goToRoomStep();
+        document.getElementsByTagName("body").item(0).classList.remove("inGame");
     }
 }
 /**

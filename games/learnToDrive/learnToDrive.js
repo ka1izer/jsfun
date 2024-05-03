@@ -58,6 +58,7 @@ MainLoop.setUpdate(delta => {
     /*movePlayer(delta);
     ball.update(delta);
     player.bat.update(delta);*/
+    updatePedals(delta);
 });
 // should update the screen, usually by changing the DOM or painting a canvas.
 MainLoop.setDraw(interpolationPercentage => {
@@ -159,6 +160,13 @@ class Rectangle {
         }
         return false;
     }
+
+    moveY(y) {
+        this.topLeft.y += y;
+        this.topRight.y += y;
+        this.bottomLeft.y += y;
+        this.bottomRight.y += y;
+    }
 }
 
 class Sprite {
@@ -203,6 +211,10 @@ class Sprite {
      * @type {Rectangle}
      */
     touchBox;
+    /**
+     * @type {Position}
+     */
+    center;
 
     /**
      * 
@@ -278,7 +290,16 @@ class Sprite {
             } while (rootPosY > topPosY);
         }
         
+        if (this.angle != 0) {
+            ctx.save();
+            ctx.translate(this.center.x, this.center.y);
+            ctx.rotate(this.angle);
+            ctx.translate(-this.center.x, -this.center.y);
+        }
         ctx.drawImage(this.img, 0, 0, this.width, this.height, this.position.x *canvasFactorX + dx - scaledWidth/2, posY, scaledWidth, scaledHeight);
+        if (this.angle != 0) {
+            ctx.restore();
+        }
         //ctx.strokeText("0", p.x+dx, -p.y+dy);
         /*if (img.maxSteps == img.step) {
             img.step = 0;
@@ -299,13 +320,39 @@ class Sprite {
 
             const dashHeight = dash.height*dash.scale * canvasFactorX *0.5; // could calc in onResize, save a few cycles...
 
-            let posY = 0;
-            posY = canvasHeight + this.position.y*canvasFactorX - dashHeight;
+            let posY = canvasHeight - dashHeight + this.position.y*canvasFactorX;
 
             this.touchBox = new Rectangle(new Position(this.position.x *canvasFactorX + dx - scaledWidth/2, posY), new Position(this.position.x *canvasFactorX + dx + scaledWidth/2, posY),
                                         new Position(this.position.x *canvasFactorX + dx - scaledWidth/2, posY + scaledHeight), new Position(this.position.x *canvasFactorX + dx + scaledWidth/2, posY + scaledHeight) );
             //console.log("touchbox", this, this.touchBox)
+            this.reCalcCenter();
         }
+    }
+
+    reCalcCenter() {
+
+        this.center = new Position(
+            this.touchBox.bottomLeft.x + (this.touchBox.bottomRight.x-this.touchBox.bottomLeft.x)/2,
+            this.touchBox.topLeft.y + (this.touchBox.bottomLeft.y - this.touchBox.topLeft.y)/2
+        );
+    }
+
+    /**
+     * Move both position and touchBox, with correct scaling...
+     * @param {number} deltaY 
+     */
+    moveY(deltaY) {
+        const canvasFactorX = canvasWidth/1000;
+        const moveScaled = deltaY / canvasFactorX;
+        if (this.touchBox.topLeft.y + moveScaled < wheel.touchBox.bottomLeft.y && moveScaled < 0) {
+            return;
+        }
+        if (this.touchBox.bottomLeft.y + moveScaled >= canvasHeight && moveScaled > 0) {
+            return;
+        }
+        this.position.y += moveScaled;
+        //this.touchBox.moveY(moveScaled);
+        this.reCalcTouchBox();
     }
 }
 
@@ -580,6 +627,7 @@ function onResize(event) {
     // If the screen device has a pixel ratio over 1
     // We render the canvas twice bigger to make it sharper (e.g. Retina iPhone)
     if (window.devicePixelRatio > 1) {
+        console.log("RETINA!!")
         canvas.width = canvas.clientWidth * 2;
         canvas.height = canvas.clientHeight * 2;
         ctx = canvas.getContext("2d");
@@ -644,6 +692,25 @@ function createEntities() {
 }
 function destroyEntities() {
     entities = [];
+}
+
+/**
+ * 
+ * @param {Pedal} pedal 
+ */
+function movePedalToStartPosition(pedal, delta) {
+    if (ongoingTouches.filter((t) => t.touching == pedal).length == 0) {
+        // none touching
+        if (pedal.touchBox.bottomLeft.y < canvasHeight) {
+            pedal.moveY(delta*0.2);
+        }
+    }
+}
+
+function updatePedals(delta) {
+    movePedalToStartPosition(gas, delta);
+    movePedalToStartPosition(brake, delta);
+    movePedalToStartPosition(clutch, delta);
 }
 
 /**
@@ -717,7 +784,60 @@ function touchMove(event) {
         if (idx >= 0) {
             // old pos in ongoingTouches[idx], new in touch
             const prevTouch = ongoingTouches[idx];
-            if (prevTouch.touching) {
+            const newTouch = copyTouch(touch);
+            const entity = prevTouch.touching;
+            if (entity) {
+
+                if (entity == wheel) {
+                    // get angle from center of wheel to newTouch.x/y
+                    // need to have a min/max on the wheel (1.5 times around, or something? 2?)
+                    // use prevTouch to figure out which way to turn wheel...
+                    //wheel.center
+                    //angle = Math.atan2(farHeight, nearLength); // or angle = Math.atan2(y, x);
+                    const oldX = prevTouch.pageX - wheel.center.x;
+                    const oldY = prevTouch.pageY - wheel.center.y;
+                    const oldAngle = Math.atan2(oldY, oldX);
+
+                    const x = newTouch.pageX - wheel.center.x;
+                    const y = newTouch.pageY - wheel.center.y;
+                    const newAngle = Math.atan2(y, x);
+                    
+                    let angleDiff = newAngle - oldAngle;
+                    if (Math.abs(angleDiff) > Math.PI*1.5) {
+                        // when go from - angle to + angle or other way around, just set diff to 0 to avoid the issue
+                        angleDiff = 0;
+                    }
+                    wheel.angle += angleDiff;
+                    const maxAngle = Math.PI*2-Math.PI/4;
+                    if (wheel.angle >= maxAngle) {
+                        wheel.angle = maxAngle;
+                    }
+                    else if (wheel.angle <= -maxAngle) {
+                        wheel.angle = -maxAngle;
+                    }
+                    //console.log("wheel.angale", wheel.angle, oldAngle, newAngle)
+                }
+                else if (entity instanceof Pedal) {
+                    const origPosY = entity.position.y;
+                    const canvasFactorX = canvasWidth/1000;
+                    const diff = newTouch.pageY - prevTouch.pageY;
+                    //entity.position.y += diff/canvasFactorX;
+                    
+                    entity.moveY(diff);
+                    if (entity == gas) {
+                        // håndtere her eller i Gas-klassen, osv???
+                    }
+                    else if (entity == clutch) {
+                        
+                    }
+                    else if (entity == brake) {
+                        
+                    }
+                    //entity.touchBox.moveY( (entity.position.y - origPosY)*canvasFactorX );
+                }
+                else if (entity == stick) {
+
+                }
 
             }
 
@@ -726,7 +846,8 @@ function touchMove(event) {
 
 
             // replace old touch with new
-            ongoingTouches.splice(idx, 1, copyTouch(touch));
+            newTouch.touching = entity;
+            ongoingTouches.splice(idx, 1, newTouch);
         }
     }
 }

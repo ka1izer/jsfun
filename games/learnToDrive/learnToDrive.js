@@ -59,6 +59,7 @@ MainLoop.setUpdate(delta => {
     ball.update(delta);
     player.bat.update(delta);*/
     updatePedals(delta);
+    stick.updateStick(delta);
 });
 // should update the screen, usually by changing the DOM or painting a canvas.
 MainLoop.setDraw(interpolationPercentage => {
@@ -159,6 +160,13 @@ class Rectangle {
             return true;
         }
         return false;
+    }
+
+    moveX(x) {
+        this.topLeft.x += x;
+        this.topRight.x += x;
+        this.bottomLeft.x += x;
+        this.bottomRight.x += x;
     }
 
     moveY(y) {
@@ -276,6 +284,14 @@ class Sprite {
         else {
             posY = this.position.y + offsetY + dy;
         }
+        let posX = this.position.x *canvasFactorX + dx - scaledWidth/2;
+        if (this == stick) {
+            posX += stick.headPosition.x*canvasFactorX;
+            posY += stick.headPosition.y*canvasFactorX;
+        }
+        else {
+            
+        }
         //console.log("y placed", this.position.y + offsetY + dy, this)
 
         if (this instanceof Pedal) {
@@ -285,7 +301,7 @@ class Sprite {
             const rootScaledHeight = this.rootHeight*this.scale * canvasFactorX;
             const topPosY = canvasHeight + dash.position.y*canvasFactorX - dashHeight + 150*canvasFactorX;
             do {
-                ctx.drawImage(this.rootImage, 0, 0, this.rootWidth, this.rootHeight, this.position.x *canvasFactorX + dx - scaledWidth/2, rootPosY, rootScaledWidth, rootScaledHeight);
+                ctx.drawImage(this.rootImage, 0, 0, this.rootWidth, this.rootHeight, posX, rootPosY, rootScaledWidth, rootScaledHeight);
                 rootPosY -= rootScaledHeight;
             } while (rootPosY > topPosY);
         }
@@ -296,7 +312,7 @@ class Sprite {
             ctx.rotate(this.angle);
             ctx.translate(-this.center.x, -this.center.y);
         }
-        ctx.drawImage(this.img, 0, 0, this.width, this.height, this.position.x *canvasFactorX + dx - scaledWidth/2, posY, scaledWidth, scaledHeight);
+        ctx.drawImage(this.img, 0, 0, this.width, this.height, posX, posY, scaledWidth, scaledHeight);
         if (this.angle != 0) {
             ctx.restore();
         }
@@ -335,24 +351,6 @@ class Sprite {
             this.touchBox.bottomLeft.x + (this.touchBox.bottomRight.x-this.touchBox.bottomLeft.x)/2,
             this.touchBox.topLeft.y + (this.touchBox.bottomLeft.y - this.touchBox.topLeft.y)/2
         );
-    }
-
-    /**
-     * Move both position and touchBox, with correct scaling...
-     * @param {number} deltaY 
-     */
-    moveY(deltaY) {
-        const canvasFactorX = canvasWidth/1000;
-        const moveScaled = deltaY / canvasFactorX;
-        if (this.touchBox.topLeft.y + moveScaled < wheel.touchBox.bottomLeft.y && moveScaled < 0) {
-            return;
-        }
-        if (this.touchBox.bottomLeft.y + moveScaled >= canvasHeight && moveScaled > 0) {
-            return;
-        }
-        this.position.y += moveScaled;
-        //this.touchBox.moveY(moveScaled);
-        this.reCalcTouchBox();
     }
 }
 
@@ -401,7 +399,7 @@ class Wheel extends Sprite {
 class GearBase extends Sprite {
 
     constructor() {
-        super(new Position(280, -80), 431, 571, 0.6, true);
+        super(new Position(330, -80), 431, 571, 0.6, true);
         this.zOrder = 3;
     }
 
@@ -410,16 +408,184 @@ class GearBase extends Sprite {
     }
 }
 
+const Gear = {
+    Rev: -1, First: 1, Second: 2, Third: 3, Fourth: 4, Fifth: 5, Sixth: 6
+};
+
 class GearStick extends Sprite {
 
+    /**
+     * @type {Position}
+     */
+    headPosition;
+    /**
+     * @type {Gear}
+     */
+    inGear = null;
+
     constructor() {
-        super(new Position(280, -80), 431, 571, 0.6, true);
+        super(new Position(330, -50), 431, 571, 0.6, true);
         this.zOrder = 4;
         this.isGUIControl = true;
+        this.headPosition = new Position(0,0);
     }
 
     loadImage() {
         return super.loadImage(gameFolder + "stick_alone.png");
+    }
+
+    /**
+     * 
+     * @param {number} moveX 
+     * @param {number} moveY 
+     */
+    move(moveX, moveY) {
+
+        // needs to move along "tracks". 
+        // Doubleclick or something first, to allow reverse?
+        // need rotation or something after tracks movement is working... should be "connected" to base...
+        // should start in neutral... may need to adjust angle/pos from what it currently is...
+
+        const canvasFactorX = canvasWidth/1000;
+        const moveXScaled = moveX / canvasFactorX;
+        const moveYScaled = moveY / canvasFactorX;
+
+        /*
+        R      1     3      5   -20y
+        |      |     |      |
+        -30x  -10 ---0----- 20
+               |     |      |
+               2     4      6  20y
+        */
+
+        if (this.headPosition.x >= -30 && this.headPosition.x <= -25) {
+            // reverse, can move between 0 and -20 along y-axis..
+            this.headPosition.y += moveYScaled;
+            if (this.headPosition.y > 0 && moveYScaled > 0) {
+                this.headPosition.y = 0;
+            }
+            if (this.headPosition.y <= -15 && moveYScaled < 0) {
+                this.headPosition.y = -20;
+                // in Reverse
+                this.inGear = Gear.Rev;
+                //console.log("Rev")
+            }
+        }
+        else if (this.headPosition.x >= -25 && this.headPosition.x <= -15) {
+            // can move on y-axis from -20 to 20 (1st to 2nd gear)
+            this.headPosition.y += moveYScaled;
+            if (this.headPosition.y > 15 && moveYScaled > 0) {
+                this.headPosition.y = 20;
+                // in 2nd gear
+                this.inGear = Gear.Second;
+                //console.log("2nd")
+            }
+            if (this.headPosition.y <= -15 && moveYScaled < 0) {
+                this.headPosition.y = -20;
+                // in 1st gear
+                this.inGear = Gear.First;
+                //console.log("1st")
+            }
+        }
+        else if (this.headPosition.x >= -5 && this.headPosition.x <= 5) {
+            // can move on y-axis from -20 to 20  (3rd to 4th gear)
+            this.headPosition.y += moveYScaled;
+            if (this.headPosition.y > 15 && moveYScaled > 0) {
+                this.headPosition.y = 20;
+                // in 4th gear
+                this.inGear = Gear.Fourth;
+                //console.log("4th")
+            }
+            if (this.headPosition.y <= -15 && moveYScaled < 0) {
+                this.headPosition.y = -20;
+                // in 3rd gear
+                this.inGear = Gear.Third;
+                //console.log("3rd")
+            }
+        }
+        else if (this.headPosition.x >= 15 && this.headPosition.x <= 20) {
+            // can move on y-axis from -20 to 20  (5th to 6th gear)
+            this.headPosition.y += moveYScaled;
+            if (this.headPosition.y > 15 && moveYScaled > 0) {
+                this.headPosition.y = 20;
+                // in 6th gear
+                this.inGear = Gear.Sixth;
+                //console.log("6th")
+            }
+            if (this.headPosition.y <= -15 && moveYScaled < 0) {
+                this.headPosition.y = -20;
+                // in 5th gear
+                this.inGear = Gear.Fifth;
+                //console.log("5th")
+            }
+        }
+
+        if (Math.abs(this.headPosition.y) < 15) {
+            this.inGear = null;
+        }
+
+        // TODO: Ikke tillat bevegelser under -10 x hvis gir gass eller har fart!!! (skal ikek vaære mulig å sette i revers da)
+        if (Math.abs(this.headPosition.y) <= 5) {
+            // free on x-axis
+            this.headPosition.x += moveXScaled;
+            if (this.headPosition.x < -30) {
+                this.headPosition.x = -30;
+            }
+            if (this.headPosition.x > 20) {
+                this.headPosition.x = 20;
+            }
+        }
+        else {
+            // locked on x-axis..
+        }
+
+        //console.log("headspos", this.headPosition)
+        this.reCalcTouchBox();
+    }
+
+    updateStick(delta) {
+        // if none are touching stick + stick not in "locked" or completely neutral position (0,0), move towards neutral position...
+        if (ongoingTouches.filter(t => t.touching).length == 0) {
+            if (this.inGear == null
+                    && (this.headPosition.x != 0 || this.headPosition.y != 0) ) {
+                const canvasFactorX = canvasWidth/1000;
+                const moveScaled = delta / canvasFactorX;
+                if (this.headPosition.x > 0) {
+                    this.headPosition.x -= moveScaled;
+                    if (this.headPosition.x < 0) {
+                        this.headPosition.x = 0;
+                    }
+                }
+                else {
+                    this.headPosition.x += moveScaled;
+                    if (this.headPosition.x > 0) {
+                        this.headPosition.x = 0;
+                    }
+                }
+                if (this.headPosition.y > 0) {
+                    this.headPosition.y -= moveScaled;
+                    if (this.headPosition.y < 0) {
+                        this.headPosition.y = 0;
+                    }
+                }
+                else {
+                    this.headPosition.y += moveScaled;
+                    if (this.headPosition.y > 0) {
+                        this.headPosition.y = 0;
+                    }
+                }
+                this.reCalcTouchBox();
+                
+            }
+        }
+    }
+
+    reCalcTouchBox() {
+        super.reCalcTouchBox();
+
+        // need to add headPosition...
+        this.touchBox.moveX(this.headPosition.x);
+        this.touchBox.moveY(this.headPosition.y);
     }
 }
 
@@ -444,6 +610,19 @@ class Pedal extends Sprite {
      * @type {number}
      */
     rootHeight;
+    /**
+     * @type {number}
+     */
+    minY;
+    /**
+     * @type {number}
+     */
+    maxY;
+    /**
+     * @type {number}
+     */
+    percentEngaged;
+
     constructor(position, width, height, scale, pedalPic, rootWidth, rootHeight, rootPic) {
         super(position, width, height, scale, true);
         this.zOrder = 0;
@@ -468,7 +647,51 @@ class Pedal extends Sprite {
         return promise;
     }
 
-    
+    reCalcTouchBox() {
+        super.reCalcTouchBox();
+        const canvasFactorX = canvasWidth/1000;
+        const scaledHeight = this.height*this.scale * canvasFactorX;
+        this.minY = wheel.touchBox.bottomLeft.y + scaledHeight;
+        this.maxY = canvasHeight;
+
+        const fullRange = this.maxY - this.minY;
+        const current = this.maxY - this.touchBox.bottomLeft.y;
+        this.percentEngaged = current * 100 / fullRange;
+        if (this.percentEngaged < 0) {
+            this.percentEngaged = 0;
+        }
+    }
+
+    /**
+     * Move both position and touchBox, with correct scaling...
+     * @param {number} deltaY
+     */
+    moveY(deltaY) {
+        const canvasFactorX = canvasWidth/1000;
+        const moveScaled = deltaY / canvasFactorX;
+        const dashHeight = dash.height*dash.scale * canvasFactorX *0.5; // could calc in onResize, save a few cycles...
+        if (this.touchBox.topLeft.y + moveScaled < wheel.touchBox.bottomLeft.y && moveScaled < 0) {
+            //let posY = canvasHeight - dashHeight + this.position.y*canvasFactorX;
+            // boxY = ch - dh + y*factorx
+            // boxy - ch + dh = y*factorX
+            // y = (boxy - ch + dh)/factorX
+            //this.position.y = dashHeight/canvasFactorX + wheel.touchBox.bottomLeft.y
+            this.position.y = (wheel.touchBox.bottomLeft.y - canvasHeight + dashHeight)/canvasFactorX;
+        }
+        else if (this.touchBox.bottomLeft.y + moveScaled >= canvasHeight && moveScaled > 0) {
+            //let posY = canvasHeight - dashHeight + this.position.y*canvasFactorX;
+            // boxY = ch - dh + y*factorx
+            // boxy - ch + dh = y*factorX
+            // y = (boxy - ch + dh)/factorX
+            // boxY = ch, so => y = dh/factorx
+            this.position.y = dashHeight/canvasFactorX - this.height*this.scale;
+        }
+        else {
+            this.position.y += moveScaled;
+        }
+        //this.touchBox.moveY(moveScaled);
+        this.reCalcTouchBox();
+    }
     
 }
 
@@ -818,8 +1041,8 @@ function touchMove(event) {
                     //console.log("wheel.angale", wheel.angle, oldAngle, newAngle)
                 }
                 else if (entity instanceof Pedal) {
-                    const origPosY = entity.position.y;
-                    const canvasFactorX = canvasWidth/1000;
+                    //const origPosY = entity.position.y;
+                    //const canvasFactorX = canvasWidth/1000;
                     const diff = newTouch.pageY - prevTouch.pageY;
                     //entity.position.y += diff/canvasFactorX;
                     
@@ -836,7 +1059,10 @@ function touchMove(event) {
                     //entity.touchBox.moveY( (entity.position.y - origPosY)*canvasFactorX );
                 }
                 else if (entity == stick) {
+                    const diffX = newTouch.pageX - prevTouch.pageX;
+                    const diffY = newTouch.pageY - prevTouch.pageY;
 
+                    entity.move(diffX, diffY);
                 }
 
             }

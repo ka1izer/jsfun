@@ -399,7 +399,7 @@ class Wheel extends Sprite {
 class GearBase extends Sprite {
 
     constructor() {
-        super(new Position(330, -80), 431, 571, 0.6, true);
+        super(new Position(330, -120), 431, 571, 0.6, true);
         this.zOrder = 3;
     }
 
@@ -424,7 +424,7 @@ class GearStick extends Sprite {
     inGear = null;
 
     constructor() {
-        super(new Position(330, -50), 431, 571, 0.6, true);
+        super(new Position(330, -90), 431, 571, 0.6, true);
         this.zOrder = 4;
         this.isGUIControl = true;
         this.headPosition = new Position(0,0);
@@ -1131,7 +1131,7 @@ export function initialize(parentClss) {
     mainDiv.style.backgroundSize = "100%";
     mainDiv.style.backgroundPositionY = "37px";*/
     mainDiv.style.position = "absolute";
-    mainDiv.style.height = "100vh";
+    mainDiv.style.height = "100%";
     mainDiv.style.width = "100vw";
     mainDiv.style.bottom = "0";
     mainDiv.style.left = "0";

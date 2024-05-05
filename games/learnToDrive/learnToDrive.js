@@ -177,6 +177,24 @@ class Rectangle {
     }
 }
 
+class Road {
+
+    /**
+     * 
+     * @param {CanvasRenderingContext2D} ctx 
+     * @param {number} dx 
+     * @param {number} dy 
+     */
+    draw(ctx, dx, dy) {
+        //ctx.drawImage(img.img, 0+(32*img.step), 0, 32, 32, p.x+dx - p.z*192/2, -p.y+dy, p.z * 192, -p.z * 192);
+        // must take canvas size into account!
+        const canvasFactorX = canvasWidth/1000;
+        const scaledWidth = this.width*this.scale * canvasFactorX;
+        const scaledHeight = this.height*this.scale * canvasFactorX;
+
+    }
+}
+
 class Sprite {
 
     /**
@@ -188,9 +206,9 @@ class Sprite {
      */
     angle = 0;
     /**
-     * @type {Image}
+     * @type {HTMLImageElement}
      */
-    image;
+    img;
     /**
      * @type {number}
      */
@@ -266,10 +284,10 @@ class Sprite {
         //ctx.drawImage(img.img, 0+(32*img.step), 0, 32, 32, p.x+dx - p.z*192/2, -p.y+dy, p.z * 192, -p.z * 192);
         // must take canvas size into account!
         const canvasFactorX = canvasWidth/1000;
-        const scaledWidth = this.width*this.scale * canvasFactorX;
-        const scaledHeight = this.height*this.scale * canvasFactorX;
+        let scaledWidth = this.width*this.scale * canvasFactorX;
+        let scaledHeight = this.height*this.scale * canvasFactorX;
 
-        const dashHeight = dash.height*dash.scale * canvasFactorX *0.5; // could calc in onResize, save a few cycles...
+        //const dashHeight = dash.height*dash.scale * canvasFactorX *0.5; // could calc in onResize, save a few cycles...
 
         // now missing: canvas width/heigth must effect x/y positioning of sprites!! Or stuff will be placed differently on different size screens...
         // treat these sprites as GUI. Must use canvasHeight to calculate where they start from on the y-axis... 
@@ -279,10 +297,10 @@ class Sprite {
         if (this.isGUI) {
             //offsetY = guiStartY - dy; // don't start at center, so subtrct dy.
             // need to subtract some of the height of the dash, too, so dash top is always same relative height from bottom...
-            posY = canvasHeight + this.position.y*canvasFactorX - dashHeight;
+            posY = canvasHeight + this.position.y*canvasFactorX - dash.calculatedDashHeight;
         }
         else {
-            posY = this.position.y + offsetY + dy;
+            posY = this.position.y /*+ offsetY + dy*/;
         }
         let posX = this.position.x *canvasFactorX + dx - scaledWidth/2;
         if (this == stick) {
@@ -299,7 +317,7 @@ class Sprite {
             let rootPosY = posY;
             const rootScaledWidth = this.rootWidth*this.scale * canvasFactorX;
             const rootScaledHeight = this.rootHeight*this.scale * canvasFactorX;
-            const topPosY = canvasHeight + dash.position.y*canvasFactorX - dashHeight + 150*canvasFactorX;
+            const topPosY = canvasHeight + dash.position.y*canvasFactorX - dash.calculatedDashHeight + 150*canvasFactorX;
             do {
                 ctx.drawImage(this.rootImage, 0, 0, this.rootWidth, this.rootHeight, posX, rootPosY, rootScaledWidth, rootScaledHeight);
                 rootPosY -= rootScaledHeight;
@@ -334,9 +352,9 @@ class Sprite {
             const dx = canvasWidth / 2;
             //const dy = canvasHeight / 2;
 
-            const dashHeight = dash.height*dash.scale * canvasFactorX *0.5; // could calc in onResize, save a few cycles...
+            //const dashHeight = dash.height*dash.scale * canvasFactorX *0.5; // could calc in onResize, save a few cycles...
 
-            let posY = canvasHeight - dashHeight + this.position.y*canvasFactorX;
+            let posY = canvasHeight - dash.calculatedDashHeight + this.position.y*canvasFactorX;
 
             this.touchBox = new Rectangle(new Position(this.position.x *canvasFactorX + dx - scaledWidth/2, posY), new Position(this.position.x *canvasFactorX + dx + scaledWidth/2, posY),
                                         new Position(this.position.x *canvasFactorX + dx - scaledWidth/2, posY + scaledHeight), new Position(this.position.x *canvasFactorX + dx + scaledWidth/2, posY + scaledHeight) );
@@ -354,14 +372,137 @@ class Sprite {
     }
 }
 
+// track should ideally be drawn on an image on resize, and the image should be drawn each draw()
 class Track extends Sprite {
+    //offscreenCanvas = document.createElement("canvas");
+    /**
+     * @type {number}
+     */
+    //cWidth;
+    /**
+     * @type {number}
+     */
+    //cHeight;
+    /**
+     * @type {HTMLImageElement}
+     */
+    guideImg;
     constructor() {
-        super(new Position(0,0), 1024, 1024, 1);
+        super(new Position(0,0), 800, 600, 1);
         this.zOrder = 0;
     }
+
+    loadImage() {
+        //return new Promise();
+        return super.loadImage(gameFolder + "track.png");
+    }
+
+    loadGuideImage() {
+        this.guideImg = new Image();
+        this.guideImg.src = gameFolder + "track_guide.png";
+        const promise = new Promise(resolve => {
+            this.guideImg.onload = () => resolve();
+            this.guideImg.onerror = () => resolve();
+        });
+        return promise;
+    }
+
+    reCalcTouchBox() {
+        
+    }
+
+    /**
+     * 
+     * @param {CanvasRenderingContext2D} ctx 
+     * @param {number} dx 
+     * @param {number} dy 
+     */
+    draw(ctx, dx, dy) {
+        ctx.drawImage(this.img, 0, 0, this.width, this.height, this.position.x, this.position.y, canvasWidth, wheel.touchBox.topLeft.y);
+    }
+
+    /*detectCollision(car) {
+        // size guideImg same as track img (canvasWidth, wheel.touchBox.topLeft.y) and check for red/blue pixels on guideImg vs car...
+    }*/
+
+
+    /*reCalcTouchBox() {
+        // called from onResize()
+
+        // draw track on image
+        
+        if (wheel) {
+            const canvasFactorX = canvasWidth/1000;
+            this.cWidth = canvasWidth;
+            this.cHeight = wheel.touchBox.topLeft.y;
+            this.offscreenCanvas.width = this.cWidth;
+            this.offscreenCanvas.height = this.cHeight;
+
+            const ctx = this.offscreenCanvas.getContext("2d");
+            ctx.strokeStyle = 'rgba(0, 0, 0, 1)';
+            ctx.lineWidth = 160*canvasFactorX;
+            //ctx.fillStyle = 'rgba(0, 150, 255, 1)';
+
+            ctx.clearRect(0, 0, this.cWidth, this.cHeight);
+
+            ctx.beginPath();
+            ctx.moveTo(120*canvasFactorX, this.cHeight/2);
+            ctx.lineTo(120*canvasFactorX, 340*canvasFactorX);
+            ctx.quadraticCurveTo(120*canvasFactorX, 0, 420*canvasFactorX, 200*canvasFactorX);
+            ctx.quadraticCurveTo(this.cWidth+120*canvasFactorX, 340*canvasFactorX, this.cWidth - 420*canvasFactorX, 400*canvasFactorX);
+            ctx.lineTo(340*canvasFactorX, 420*canvasFactorX);
+            ctx.quadraticCurveTo(120*canvasFactorX, 420*canvasFactorX, 620*canvasFactorX, 620*canvasFactorX);
+            ctx.quadraticCurveTo(this.cWidth+120*canvasFactorX, 720*canvasFactorX, 420*canvasFactorX, 920*canvasFactorX);
+            ctx.quadraticCurveTo(120*canvasFactorX, this.cHeight/2 + 120*canvasFactorX, 120*canvasFactorX, this.cHeight/2);
+            ctx.stroke();
+
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            const startX = 160*canvasFactorX/2;
+            ctx.moveTo(120*canvasFactorX-startX, this.cHeight/2);
+            ctx.lineTo(120*canvasFactorX-startX, 340*canvasFactorX);
+            ctx.quadraticCurveTo(120*canvasFactorX-startX, 0-startX, 420*canvasFactorX, 200*canvasFactorX-startX);
+
+            ctx.quadraticCurveTo(this.cWidth+120*canvasFactorX+startX, 340*canvasFactorX-startX/2, this.cWidth - 420*canvasFactorX+startX, 400*canvasFactorX+startX);
+            ctx.lineTo(340*canvasFactorX+startX*2, 420*canvasFactorX+startX);
+            //ctx.quadraticCurveTo(120*canvasFactorX, 420*canvasFactorX, 620*canvasFactorX, 620*canvasFactorX);
+            //ctx.quadraticCurveTo(this.cWidth+120*canvasFactorX, 720*canvasFactorX, 420*canvasFactorX, 920*canvasFactorX);
+            //ctx.quadraticCurveTo(120*canvasFactorX, this.cHeight/2 + 120*canvasFactorX, 120*canvasFactorX, this.cHeight/2);
+            ctx.stroke();
+            
+            
+
+            console.log("cwidth", this.cWidth, this.cHeight)
+
+        }
+    }
+
+    /
+      
+      @param {CanvasRenderingContext2D} ctx 
+      @param {number} dx 
+      @param {number} dy 
+     /
+    draw(ctx, dx, dy) {
+        // draw image of track
+        if (wheel) {
+            ctx.drawImage(this.offscreenCanvas, 0, 0);
+        }
+    }*/
+
+}
+
+class Car extends Sprite {
+    
 }
 
 class Dash extends Sprite {
+    /**
+     * @type {number}
+     */
+    calculatedDashHeight;
     constructor() {
         super(new Position(0,0), 1024, 1024, 1, true);
         this.zOrder = 1;
@@ -369,6 +510,12 @@ class Dash extends Sprite {
 
     loadImage() {
         return super.loadImage(gameFolder + "dash.png");
+    }
+
+    reCalcTouchBox() {
+        const canvasFactorX = canvasWidth/1000;
+        this.calculatedDashHeight = this.height*this.scale * canvasFactorX *0.5; // could calc in onResize, save a few cycles...
+        super.reCalcTouchBox();
     }
 }
 
@@ -669,14 +816,14 @@ class Pedal extends Sprite {
     moveY(deltaY) {
         const canvasFactorX = canvasWidth/1000;
         const moveScaled = deltaY / canvasFactorX;
-        const dashHeight = dash.height*dash.scale * canvasFactorX *0.5; // could calc in onResize, save a few cycles...
+        //const dashHeight = dash.height*dash.scale * canvasFactorX *0.5; // could calc in onResize, save a few cycles...
         if (this.touchBox.topLeft.y + moveScaled < wheel.touchBox.bottomLeft.y && moveScaled < 0) {
             //let posY = canvasHeight - dashHeight + this.position.y*canvasFactorX;
             // boxY = ch - dh + y*factorx
             // boxy - ch + dh = y*factorX
             // y = (boxy - ch + dh)/factorX
             //this.position.y = dashHeight/canvasFactorX + wheel.touchBox.bottomLeft.y
-            this.position.y = (wheel.touchBox.bottomLeft.y - canvasHeight + dashHeight)/canvasFactorX;
+            this.position.y = (wheel.touchBox.bottomLeft.y - canvasHeight + dash.calculatedDashHeight)/canvasFactorX;
         }
         else if (this.touchBox.bottomLeft.y + moveScaled >= canvasHeight && moveScaled > 0) {
             //let posY = canvasHeight - dashHeight + this.position.y*canvasFactorX;
@@ -684,7 +831,7 @@ class Pedal extends Sprite {
             // boxy - ch + dh = y*factorX
             // y = (boxy - ch + dh)/factorX
             // boxY = ch, so => y = dh/factorx
-            this.position.y = dashHeight/canvasFactorX - this.height*this.scale;
+            this.position.y = dash.calculatedDashHeight/canvasFactorX - this.height*this.scale;
         }
         else {
             this.position.y += moveScaled;
@@ -788,6 +935,10 @@ let brake = null;
  * @type {Clutch}
  */
 let clutch = null;
+/**
+ * @type {Track}
+ */
+let track = null;
 
 /**
  * 
@@ -861,9 +1012,14 @@ function onResize(event) {
     }
 
     for (const entity of entities) {
-        entity.reCalcTouchBox();
+        entity.reCalcTouchBox(); // dash is first, and needs to be first, since it recalculates dash.calculatedDashHeight, which is used in the others...
     }
 
+    if (wheel) {
+        const topOfWheel = canvasHeight - wheel.touchBox.topLeft.y;
+        const centerWheel = canvasHeight - wheel.center.y;
+        mainDiv.style.backgroundImage = `linear-gradient(0, #EEE ${centerWheel}px, green ${topOfWheel}px)`;
+    }
 }
 
 /**
@@ -908,13 +1064,24 @@ function createEntities() {
     entities.push(clutch);
     promises.push(clutch.loadImage());
     promises.push(clutch.loadRootImage());
-    
+
+    track = new Track();
+    entities.push(track);
+    promises.push(track.loadImage());
+    promises.push(track.loadGuideImage());
     
 
     return promises;
 }
 function destroyEntities() {
     entities = [];
+    dash = null;
+    wheel = null;
+    stick = null;
+    gas = null;
+    brake = null;
+    clutch = null;
+    track = null;
 }
 
 /**
@@ -1126,7 +1293,9 @@ export function initialize(parentClss) {
 
     // set dash + gear base as background image, figure out how/where to place the rest ()
     // need different layout than tennis. Want dash and stuff on the bottom, with race track above...
-    mainDiv.style.backgroundColor = "white";
+    //mainDiv.style.backgroundColor = "white";
+    //background: linear-gradient(90deg, #FFC0CB 50%, #00FFFF 50%);
+    // set background in onResize, since we need to know dimensions...
     /*mainDiv.style.backgroundImage = "url('./games/learnToDrive/dash.png')";
     mainDiv.style.backgroundSize = "100%";
     mainDiv.style.backgroundPositionY = "37px";*/

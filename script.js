@@ -137,7 +137,7 @@ class Tennis extends Game {
 
 class LearnToDrive extends Game {
     constructor() {
-        super("learnToDrive", "Learn To Drive", 1, 6);
+        super("learnToDrive", "Learn To Drive!", 1, 6);
         this.players = [[]]; // initialize players
         // should load image for this game...
     }

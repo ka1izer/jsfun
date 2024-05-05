@@ -494,8 +494,58 @@ class Track extends Sprite {
 
 }
 
+const CarImageByIndex = [
+    {x: 65, y: 79, width: 92, height: 129}, // 0
+    {x: 93, y: 83, width: 120, height: 132},
+    {x: 149, y: 88, width: 177, height: 136},
+    {x: 86, y: 133, width: 113, height: 182}, // 3
+    {x: 114, y: 134, width: 143, height: 183},
+    {x: 144, y: 137, width: 173, height: 186}, // 5
+];
+
+const CarInitialPositionByIndex = [
+    new Position(10, 20), // 0
+    new Position(10, 20), // 1
+    new Position(10, 20),
+    new Position(10, 20), // 3
+    new Position(10, 20),
+    new Position(10, 20), // 5
+]
+
 class Car extends Sprite {
-    
+    /**
+     * @type {{x: number, y: number, width: number, height: number}}
+     */
+    carImg;
+    constructor(index) {
+        super(new Position(0,0), 32, 32, 0.5);
+        this.carImg = CarImageByIndex[index];
+        this.width = this.carImg.width;
+        this.height = this.carImg.height;
+        this.position = CarInitialPositionByIndex[index];
+    }
+    // samme coordinates som track? Endrer seg ved resize. Må kanskje ha eget coordssystem for bilene,
+    // som regnes om til track sitt ved drawing og collision-detection, osv??
+
+    reCalcTouchBox() {
+    }
+
+    /**
+     * 
+     * @param {CanvasRenderingContext2D} ctx 
+     * @param {number} dx 
+     * @param {number} dy 
+     */
+    draw(ctx, dx, dy) {
+        // må size ut fra canvas (width bare?)
+        const canvasFactorX = canvasWidth/1000;
+        const scaledWidth = this.width*this.scale * canvasFactorX;
+        const scaledHeight = this.height*this.scale * canvasFactorX;
+
+        
+        //ctx.drawImage(this.img, 0, 0, this.width, this.height, this.position.x, this.position.y, canvasWidth, wheel.touchBox.topLeft.y);
+    }
+
 }
 
 class Dash extends Sprite {
@@ -870,6 +920,10 @@ class Player extends Sprite {
      * @type {{nick: string, channel: RTCDataChannel}}
      */
     peer;
+    /**
+     * @type {Car}
+     */
+    car;
     constructor(position, peer) {
         super(position);
         this.peer = peer;
@@ -1069,6 +1123,21 @@ function createEntities() {
     entities.push(track);
     promises.push(track.loadImage());
     promises.push(track.loadGuideImage());
+
+    const carImg = new Image();
+    carImg.src = gameFolder + "cars.png";
+    const promise = new Promise(resolve => {
+        carImg.onload = () => resolve();
+        carImg.onerror = () => resolve();
+    });
+    promises.push(promise);
+
+    for (let i=0; i < players.length; i++) {
+        const plr = players[i];
+        plr.car = new Car(i);
+        plr.car.img = carImg;
+        entities.push(plr.car);
+    }
     
 
     return promises;
@@ -1082,6 +1151,9 @@ function destroyEntities() {
     brake = null;
     clutch = null;
     track = null;
+    for (const plr of players) {
+        plr.car = null;
+    }
 }
 
 /**
@@ -1354,7 +1426,7 @@ export function initialize(parentClss) {
     
     const promises = createEntities();
     const allPromises = promises.concat(loadSounds());
-    Promise.all(promises).then(assetsLoaded());
+    Promise.all(allPromises).then(assetsLoaded());
 
     onResize(); // force touchBoxes calc...
 

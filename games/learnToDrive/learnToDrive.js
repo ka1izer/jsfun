@@ -60,6 +60,7 @@ MainLoop.setUpdate(delta => {
     player.bat.update(delta);*/
     updatePedals(delta);
     stick.updateStick(delta);
+    player.car.update(delta);
 });
 // should update the screen, usually by changing the DOM or painting a canvas.
 MainLoop.setDraw(interpolationPercentage => {
@@ -495,21 +496,21 @@ class Track extends Sprite {
 }
 
 const CarImageByIndex = [
-    {x: 65, y: 79, width: 92, height: 129}, // 0
-    {x: 93, y: 83, width: 120, height: 132},
-    {x: 149, y: 88, width: 177, height: 136},
-    {x: 86, y: 133, width: 113, height: 182}, // 3
-    {x: 114, y: 134, width: 143, height: 183},
-    {x: 144, y: 137, width: 173, height: 186}, // 5
+    {x: 65, y: 79, width: 27, height: 50}, // 0
+    {x: 93, y: 83, width: 27, height: 49},
+    {x: 149, y: 88, width: 28, height: 48},
+    {x: 86, y: 133, width: 28, height: 49}, // 3
+    {x: 114, y: 134, width: 29, height: 49},
+    {x: 144, y: 137, width: 29, height: 49}, // 5
 ];
 
 const CarInitialPositionByIndex = [
-    new Position(10, 20), // 0
-    new Position(10, 20), // 1
-    new Position(10, 20),
-    new Position(10, 20), // 3
-    new Position(10, 20),
-    new Position(10, 20), // 5
+    new Position(400, 90), // 0
+    new Position(380, 120), // 1
+    new Position(370, 150),
+    new Position(360, 180), // 3
+    new Position(350, 210),
+    new Position(340, 240), // 5
 ]
 
 class Car extends Sprite {
@@ -518,11 +519,12 @@ class Car extends Sprite {
      */
     carImg;
     constructor(index) {
-        super(new Position(0,0), 32, 32, 0.5);
+        super(new Position(0,0), 0, 0, 1);
         this.carImg = CarImageByIndex[index];
         this.width = this.carImg.width;
         this.height = this.carImg.height;
         this.position = CarInitialPositionByIndex[index];
+        this.angle = Math.PI/2;
     }
     // samme coordinates som track? Endrer seg ved resize. Må kanskje ha eget coordssystem for bilene,
     // som regnes om til track sitt ved drawing og collision-detection, osv??
@@ -533,17 +535,62 @@ class Car extends Sprite {
     /**
      * 
      * @param {CanvasRenderingContext2D} ctx 
-     * @param {number} dx 
-     * @param {number} dy 
      */
-    draw(ctx, dx, dy) {
+    draw(ctx) {
         // må size ut fra canvas (width bare?)
         const canvasFactorX = canvasWidth/1000;
         const scaledWidth = this.width*this.scale * canvasFactorX;
         const scaledHeight = this.height*this.scale * canvasFactorX;
 
-        
-        //ctx.drawImage(this.img, 0, 0, this.width, this.height, this.position.x, this.position.y, canvasWidth, wheel.touchBox.topLeft.y);
+        const posX = this.position.x*canvasFactorX;
+        const posY = this.position.y* (wheel.touchBox.topLeft.y/1000);
+
+        this.center = new Position(posX + scaledWidth/2, posY + scaledHeight/2);
+
+        //ctx.drawImage(this.img, 0, 0, this.width, this.height, posX, posY, canvasWidth, wheel.touchBox.topLeft.y);
+
+
+        if (this.angle != 0) {
+            ctx.save();
+            ctx.translate(this.center.x, this.center.y);
+            ctx.rotate(this.angle);
+            ctx.translate(-this.center.x, -this.center.y);
+        }
+        ctx.drawImage(this.img, this.carImg.x, this.carImg.y, this.width, this.height, posX, posY, scaledWidth, scaledHeight);
+        if (this.angle != 0) {
+            ctx.restore();
+        }
+    }
+
+    startedSound = false;
+    prevGas = null;
+
+    /**
+     * Called in MainLoop.update(). Only called on Player's car
+     * @param {number} delta 
+     */
+    update(delta) {
+        if (soundsLoaded) {
+            if (!this.startedSound) {
+                sound.engine.s.loop = true;
+                sound.engine.s.volume = 1;
+                sound.engine.s.play();
+                this.startedSound = true;
+            }
+            //sound.engine.s.
+            // pitch from 1 to 4 or so... gas is 0 to 100. 0 gas => 1 pitch, 100 gas => 4ish pitch
+            // TODO: sound clips now, when changing gas, since we stop and restart.. should do something to not update each run or something, less clipping..
+            if ( (this.prevGas == null && gas.percentEngaged > 0)
+                    || this.prevGas != gas.percentEngaged ) {
+                sound.engine.s.pause();
+                sound.engine.s.playbackRate = 1 + 4*gas.percentEngaged*gas.percentEngaged/10000;
+                //console.log("sound.engine.s.playbackRate", sound.engine.s.playbackRate)
+                sound.engine.s.play();
+                this.prevGas = gas.percentEngaged;
+            }
+
+            // if car in gear, move according to gear and gas... or stop engine or something if geared too high??
+        }
     }
 
 }
@@ -965,6 +1012,11 @@ let canvasWidth = null;
  */
 let entities = [];
 
+const sound = {
+    engine: {src: null, s: null},
+};
+let soundsLoaded = false;
+
 /**
  * @type {Wheel}
  */
@@ -1138,6 +1190,23 @@ function createEntities() {
         plr.car.img = carImg;
         entities.push(plr.car);
     }
+    // Just for testing with one player. REMEMBER TO REMOVE!:
+    let car = new Car(1);
+    car.img = carImg;
+    entities.push(car);
+    car = new Car(2);
+    car.img = carImg;
+    entities.push(car);
+    car = new Car(3);
+    car.img = carImg;
+    entities.push(car);
+    car = new Car(4);
+    car.img = carImg;
+    entities.push(car);
+    car = new Car(5);
+    car.img = carImg;
+    entities.push(car);
+        
     
 
     return promises;
@@ -1182,11 +1251,23 @@ function updatePedals(delta) {
 function loadSounds() {
     const promises = [];
 
+    sound.engine.src = gameFolder + "engine_fixed.mp3";
+
+    Sounds.sounds.load([sound.engine.src]);
+
+    const promise = new Promise(resolve => {
+        Sounds.sounds.whenLoaded = () => {
+            sound.engine.s = Sounds.sounds[sound.engine.src];
+            soundsLoaded = true;
+            resolve()
+        };
+    });
+    promises.push(promise);
 
     return promises;
 }
 function unLoadSounds() {
-
+    // not found way to unload yet... (not really looked hard, either...)
 }
 
 function assetsLoaded() {

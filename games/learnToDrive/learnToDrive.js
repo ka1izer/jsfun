@@ -518,6 +518,14 @@ class Car extends Sprite {
      * @type {{x: number, y: number, width: number, height: number}}
      */
     carImg;
+    /**
+     * @type {number}
+     */
+    speed;
+    /**
+     * @type {boolean}
+     */
+    engineRunning = true;
     constructor(index) {
         super(new Position(0,0), 0, 0, 1);
         this.carImg = CarImageByIndex[index];
@@ -566,30 +574,85 @@ class Car extends Sprite {
     prevGas = null;
 
     /**
+     * 
+     * @param {boolean} stalled 
+     */
+    missGeared(stalled) {
+        if (stalled) {
+
+        }
+        else {
+
+        }
+    }
+
+    /**
      * Called in MainLoop.update(). Only called on Player's car
      * @param {number} delta 
      */
     update(delta) {
         if (soundsLoaded) {
-            if (!this.startedSound) {
-                sound.engine.s.loop = true;
-                sound.engine.s.volume = 1;
-                sound.engine.s.play();
-                this.startedSound = true;
+            if (this.engineRunning) {
+                if (!this.startedSound) {
+                    sound.engine.s.loop = true;
+                    sound.engine.s.volume = 1;
+                    sound.engine.s.play();
+                    this.startedSound = true;
+                }
+                //sound.engine.s.
+                // pitch from 1 to 4 or so... gas is 0 to 100. 0 gas => 1 pitch, 100 gas => 4ish pitch
+                // TODO: sound clips now, when changing gas, since we stop and restart.. should do something to not update each run or something, less clipping..
+                if ( (this.prevGas == null && gas.percentEngaged > 0)
+                        || this.prevGas != gas.percentEngaged ) {
+                    sound.engine.s.pause();
+                    sound.engine.s.playbackRate = 0.5 + 4.5*gas.percentEngaged*gas.percentEngaged/10000;
+                    //console.log("sound.engine.s.playbackRate", sound.engine.s.playbackRate)
+                    sound.engine.s.play();
+                    this.prevGas = gas.percentEngaged;
+                }
             }
-            //sound.engine.s.
-            // pitch from 1 to 4 or so... gas is 0 to 100. 0 gas => 1 pitch, 100 gas => 4ish pitch
-            // TODO: sound clips now, when changing gas, since we stop and restart.. should do something to not update each run or something, less clipping..
-            if ( (this.prevGas == null && gas.percentEngaged > 0)
-                    || this.prevGas != gas.percentEngaged ) {
-                sound.engine.s.pause();
-                sound.engine.s.playbackRate = 1 + 4*gas.percentEngaged*gas.percentEngaged/10000;
-                //console.log("sound.engine.s.playbackRate", sound.engine.s.playbackRate)
-                sound.engine.s.play();
-                this.prevGas = gas.percentEngaged;
+            else {
+                if (!this.startedSound) {
+                    sound.engine.s.pause();
+                }
             }
+        }
+        // if car in gear, move according to gear and gas... or stop engine or something if geared too high??
+        if (stick.inGear == Gear.First) {
+            // speed from 0 to 20ish. 
+            // if speed was over 20ish, problem!!
+            // TODO: Create a start button on the left of the dash. Then we can stop engine on shift-accidents... Should light up or something when engine stopped
+            // Should also have sounds for both engine stalling (too low speed), and too high speed (breaking gear sound??)
+            // Må også ta høyde for clutch!!! Bør vel egentlig også hindre shifting av gear uten clutching? Eller bare stoppe motor med en gang, da?
+        }
+        else if (stick.inGear == Gear.Second) {
+            // speed from 15ish to 60ish. 
+            // if speed was under 15ish, problem!
+            // if speed was over 60ish, problem!!
 
-            // if car in gear, move according to gear and gas... or stop engine or something if geared too high??
+        }
+        else if (stick.inGear == Gear.Third) {
+            // speed from 35ish to 70ish. 
+            // if speed was under 35ish, problem!
+            // if speed was over 70ish, problem!!
+        }
+        else if (stick.inGear == Gear.Fourth) {
+            // speed from 45ish to 90ish. 
+            // if speed was under 45ish, problem!
+            // if speed was over 90ish, problem!!
+        }
+        else if (stick.inGear == Gear.Fifth) {
+            // speed from 55ish to 100ish. 
+            // if speed was under 55ish, problem!
+            // if speed was over 100ish, problem!!
+        }
+        else if (stick.inGear == Gear.Sixth) {
+            // speed from 75ish to 120ish. 
+            // if speed was under 75ish, problem!
+        }
+        else if (stick.inGear == Gear.Rev) {
+            // speed from 0 to -20ish.
+            // should be impossible to put in Rev if speed is > 0.
         }
     }
 

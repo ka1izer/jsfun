@@ -624,6 +624,7 @@ class Car extends Sprite {
             // TODO: Create a start button on the left of the dash. Then we can stop engine on shift-accidents... Should light up or something when engine stopped
             // Should also have sounds for both engine stalling (too low speed), and too high speed (breaking gear sound??)
             // Må også ta høyde for clutch!!! Bør vel egentlig også hindre shifting av gear uten clutching? Eller bare stoppe motor med en gang, da?
+            // kanskje si at første-gir krever fart av 10 eller noe, og må eases inn vha clutch?
         }
         else if (stick.inGear == Gear.Second) {
             // speed from 15ish to 60ish. 

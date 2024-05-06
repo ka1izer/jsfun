@@ -655,6 +655,10 @@ class Car extends Sprite {
             // speed from 0 to -20ish.
             // should be impossible to put in Rev if speed is > 0.
         }
+
+        if (this.speed != 0) {
+            // move car according to speed and wheel.angle. Adjust this.angle gradually...
+        }
     }
 
 }

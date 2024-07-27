@@ -521,7 +521,11 @@ class Car extends Sprite {
     /**
      * @type {number}
      */
-    speed;
+    rpm = 500;
+    /**
+     * @type {number}
+     */
+    speed = 0;
     /**
      * @type {boolean}
      */
@@ -553,7 +557,7 @@ class Car extends Sprite {
         const posX = this.position.x*canvasFactorX;
         const posY = this.position.y* (wheel.touchBox.topLeft.y/1000);
 
-        this.center = new Position(posX + scaledWidth/2, posY + scaledHeight/2);
+        this.center = new Position(posX + scaledWidth/2, posY + scaledHeight/1.5);
 
         //ctx.drawImage(this.img, 0, 0, this.width, this.height, posX, posY, canvasWidth, wheel.touchBox.topLeft.y);
 
@@ -571,26 +575,34 @@ class Car extends Sprite {
     }
 
     startedSound = false;
-    prevGas = null;
+    prevRPM = null;
 
     /**
      * 
      * @param {boolean} stalled 
      */
     missGeared(stalled) {
+        console.log("misgeared!, stall?", stalled)
         if (stalled) {
-
+            // play stall sound
         }
         else {
-
+            // play misGear sound
         }
+        this.rpm = 0;
+        this.engineRunning = false;
+        button.engineStopped();
     }
 
-    /**
-     * Called in MainLoop.update(). Only called on Player's car
-     * @param {number} delta 
-     */
-    update(delta) {
+    startEngine() {
+        // play engine start sound?
+        this.engineRunning = true;
+        button.engineStarted();
+    }
+
+    minTimeBetweenChange = 100;
+    timeBetweenChange = 100;
+    playCarSounds(delta) {
         if (soundsLoaded) {
             if (this.engineRunning) {
                 if (!this.startedSound) {
@@ -602,62 +614,264 @@ class Car extends Sprite {
                 //sound.engine.s.
                 // pitch from 1 to 4 or so... gas is 0 to 100. 0 gas => 1 pitch, 100 gas => 4ish pitch
                 // TODO: sound clips now, when changing gas, since we stop and restart.. should do something to not update each run or something, less clipping..
-                if ( (this.prevGas == null && gas.percentEngaged > 0)
-                        || this.prevGas != gas.percentEngaged ) {
-                    sound.engine.s.pause();
-                    sound.engine.s.playbackRate = 0.5 + 4.5*gas.percentEngaged*gas.percentEngaged/10000;
-                    //console.log("sound.engine.s.playbackRate", sound.engine.s.playbackRate)
-                    sound.engine.s.play();
-                    this.prevGas = gas.percentEngaged;
+                if ( (this.prevRPM == null && this.rpm > 0)
+                        || this.prevRPM != this.rpm) {
+                    this.timeBetweenChange += delta;
+                    if (this.timeBetweenChange > this.minTimeBetweenChange) {
+                        sound.engine.s.pause();
+                        sound.engine.s.playbackRate =  this.rpm/1200; //this.rpm*this.rpm/250000;
+                        //console.log("sound.engine.s.playbackRate", sound.engine.s.playbackRate)
+                        sound.engine.s.play();
+                        this.prevRPM = this.rpm;
+                        this.timeBetweenChange = 0;
+                    }
                 }
             }
             else {
-                if (!this.startedSound) {
+                if (this.startedSound) {
                     sound.engine.s.pause();
+                    this.startedSound = false;
                 }
             }
         }
-        // if car in gear, move according to gear and gas... or stop engine or something if geared too high??
-        if (stick.inGear == Gear.First) {
-            // speed from 0 to 20ish. 
-            // if speed was over 20ish, problem!!
-            // TODO: Create a start button on the left of the dash. Then we can stop engine on shift-accidents... Should light up or something when engine stopped
-            // Should also have sounds for both engine stalling (too low speed), and too high speed (breaking gear sound??)
-            // Må også ta høyde for clutch!!! Bør vel egentlig også hindre shifting av gear uten clutching? Eller bare stoppe motor med en gang, da?
-            // kanskje si at første-gir krever fart av 10 eller noe, og må eases inn vha clutch?
-        }
-        else if (stick.inGear == Gear.Second) {
-            // speed from 15ish to 60ish. 
-            // if speed was under 15ish, problem!
-            // if speed was over 60ish, problem!!
+    }
 
+    /**
+     * Called in MainLoop.update(). Only called on Player's car
+     * @param {number} delta 
+     */
+    update(delta) {
+        this.playCarSounds(delta);
+        // if car in gear, move according to gear and gas... or stop engine or something if geared too high??
+
+        // need to calc rpms... and stuff
+        // rpms from 500 to 5000, say, with best between 1500 to 3000.
+        // struggles under 500 and over 5000
+
+        // calculate target rpm/speed from gas*clutch*gear-ratio
+
+        const rpmChangeRate = 0.8;
+        //const speedChangeRate = 0.05;
+        
+        if (!this.engineRunning || clutch.percentEngaged >= 80) {
+            // gear doesnt matter...
+            // speed should be gradually decreased...
+            // TODO: if engine stopped and is in gear, would be like hitting the brakes, I guess..?
+            this.speed -= .002*delta; //need testing
+            if (this.speed < 0) {
+                this.speed = 0;
+            }
         }
-        else if (stick.inGear == Gear.Third) {
-            // speed from 35ish to 70ish. 
-            // if speed was under 35ish, problem!
-            // if speed was over 70ish, problem!!
+
+        
+        const deltaFactor = delta*0.01;
+
+        let gearRatio = 65;
+        let dragRatio = 0;
+        let gearSpeedRatio = 0;
+        let gearLowerLimit = 500;
+        let gearUpperLimit = 10000;
+
+
+        if (this.engineRunning && clutch.percentEngaged < 80) {
+            if (stick.inGear == Gear.First) {
+                
+                gearRatio = 65;
+                dragRatio = 10;
+                gearSpeedRatio = 0.05;
+                gearLowerLimit = 500;
+                gearUpperLimit = 10000;
+            }
+            else if (stick.inGear == Gear.Second) {
+                // speed from 15ish to 60ish. 
+                // if speed was under 15ish, problem!
+                // if speed was over 60ish, problem!!
+
+                gearRatio = 60;
+                dragRatio = 20;
+                gearSpeedRatio = 0.08;
+                gearLowerLimit = 900;
+                gearUpperLimit = 10000;
+            }
+            else if (stick.inGear == Gear.Third) {
+                // speed from 35ish to 70ish. 
+                // if speed was under 35ish, problem!
+                // if speed was over 70ish, problem!!
+
+                gearRatio = 50;
+                dragRatio = 25;
+                gearSpeedRatio = 0.018;
+                gearLowerLimit = 1500;
+                gearUpperLimit = 10000;
+            }
+            else if (stick.inGear == Gear.Fourth) {
+                // speed from 45ish to 90ish. 
+                // if speed was under 45ish, problem!
+                // if speed was over 90ish, problem!!
+
+                gearRatio = 45;
+                dragRatio = 30;
+                gearSpeedRatio = 0.025;
+                gearLowerLimit = 1500;
+                gearUpperLimit = 10000;
+            }
+            else if (stick.inGear == Gear.Fifth) {
+                // speed from 55ish to 100ish. 
+                // if speed was under 55ish, problem!
+                // if speed was over 100ish, problem!!
+
+                gearRatio = 40;
+                dragRatio = 35;
+                gearSpeedRatio = 0.030;
+                gearLowerLimit = 1500;
+                gearUpperLimit = 10000;
+            }
+            else if (stick.inGear == Gear.Sixth) {
+                // speed from 75ish to 120ish. 
+                // if speed was under 75ish, problem!
+
+                gearRatio = 35;
+                dragRatio = 40;
+                gearSpeedRatio = 0.035;
+                gearLowerLimit = 1500;
+                gearUpperLimit = 10000;
+            }
+            else if (stick.inGear == Gear.Rev) {
+                // speed from 0 to -20ish.
+                // should be impossible to put in Rev if speed is > 0.
+                gearRatio = 60;
+                dragRatio = 10;
+                gearSpeedRatio = -0.007;
+                gearLowerLimit = 1500;
+                gearUpperLimit = 10000;
+            }
         }
-        else if (stick.inGear == Gear.Fourth) {
-            // speed from 45ish to 90ish. 
-            // if speed was under 45ish, problem!
-            // if speed was over 90ish, problem!!
+
+        //const canvasFactorX = canvasWidth/1000;
+
+        //const targetRPM = gas.percentEngaged*((100-clutch.percentEngaged)/100)*gearRatio;
+        //const targetSpeed = targetRPM * gearSpeedRatio;
+        let targetRPM = (10+gas.percentEngaged)*gearRatio;
+        // drag from car if clutch is not > 80% engaged:
+        let drag = (90-clutch.percentEngaged)*dragRatio;
+        notDone! // use speed to affect drag, so more speed = less drag! and up dragRatio of higher gears... find proper rpms/speeds of gears first, then find proper limits...
+        // car drags with x amount of force. If engine outputs less force than that, engine stalls? blalal
+        targetRPM -= drag;
+        if (targetRPM < 0) {
+            targetRPM = 0;
         }
-        else if (stick.inGear == Gear.Fifth) {
-            // speed from 55ish to 100ish. 
-            // if speed was under 55ish, problem!
-            // if speed was over 100ish, problem!!
+
+        const targetSpeed = targetRPM * gearSpeedRatio * ((90-clutch.percentEngaged)/100);
+        
+        console.log("targetRPM, speed", targetRPM, targetSpeed, this.rpm, this.speed, (targetRPM - this.rpm)*deltaFactor*rpmChangeRate)
+
+        // move rpm towards targetRPM
+        // move speed towards targetSpeed
+        // if rpm goes below 500 or above 5000 or so, missgear...
+        let rpmChange = (targetRPM - this.rpm)*deltaFactor*rpmChangeRate;
+        if (Math.abs(rpmChange) > 450) {
+            this.missGeared(rpmChange > 0? true : false);
+            return;
         }
-        else if (stick.inGear == Gear.Sixth) {
-            // speed from 75ish to 120ish. 
-            // if speed was under 75ish, problem!
+
+        if (Math.abs(rpmChange) < 1) {
+            this.rpm = targetRPM;
         }
-        else if (stick.inGear == Gear.Rev) {
-            // speed from 0 to -20ish.
-            // should be impossible to put in Rev if speed is > 0.
+        else {
+            this.rpm += rpmChange;
         }
+        let speedChange = (targetSpeed - this.speed)*deltaFactor*rpmChangeRate;
+        if (speedChange < 0 && (stick.inGear == null || clutch.percentEngaged > 0) ) {
+            // Kan ikke gå rett til 0 her, om har trykket inn clutch++/fri!!!
+            let brakingFactor = 1;
+            if (stick.inGear) {
+                brakingFactor = 0.05 + ((100-clutch.percentEngaged)/100) * 0.5;
+            }
+            else {
+                brakingFactor = 0.05;
+            }
+            speedChange *= brakingFactor;
+        }
+        if (Math.abs(speedChange) < 0.3) {
+            this.speed = targetSpeed;
+        }
+        else {
+            this.speed += speedChange;
+        }
+
+        //console.log("new rpm,speed", this.rpm, this.speed)
+
+        // Need to take speed into account on drag
+        let rpmFromSpeed = targetRPM;
+        if (Math.abs(this.speed) > 0 && gearSpeedRatio != 0) {
+            rpmFromSpeed = (this.speed * ((100-clutch.percentEngaged)/100) )/gearSpeedRatio;
+        }
+
+        //  probably need custom check for each gear for stalling++...
+        const rpmToCheck = Math.max(targetRPM, rpmFromSpeed);
+        //if (stick.inGear == Gear.First || stick.inGear == Gear.Second) {
+        /*if (stick.inGear) {
+            if (rpmToCheck < 500) {
+                this.missGeared(true);
+            }
+            else if (rpmToCheck > 10000) {
+                this.missGeared(false);
+            }
+        }*/
+        gearLowerLimit = gearLowerLimit + 150 * (clutch.percentEngaged)/100;
+        gearUpperLimit = gearUpperLimit + 150 * (clutch.percentEngaged)/100;
+        if (rpmToCheck < gearLowerLimit) {
+            this.missGeared(true);
+            return;
+        }
+        else if (rpmToCheck > gearUpperLimit) {
+            this.missGeared(false);
+            return;
+        }
+
+        /*if (this.rpm < 500 || (this.inGear != Gear.Rev && targetRPM < 0)) {
+            this.missGeared(true);
+            return;
+        }
+        else if (this.rpm > 6000) {
+            this.missGeared(false);
+            return;
+        }*/
 
         if (this.speed != 0) {
             // move car according to speed and wheel.angle. Adjust this.angle gradually...
+            this.moveCar(delta);
+        }
+    }
+
+    moveCar(delta) {
+
+        // use this.speed and wheel.angle to move car and adjust this.angle
+        // "center" of turn will be closer to car the steeper the angle of turn. Relative y-"center" should be approximately where the front wheels are..
+
+        // find x and y from speed and angle..
+        const canvasFactorX = canvasWidth/1000;
+        const speedFactor = delta * canvasFactorX * 0.001;
+        const turnFactor = 0.03;
+        //console.log("this.speed", this.speed);
+        
+        let x = -Math.sin(this.angle + Math.PI) * this.speed;;
+        let y = Math.cos(this.angle + Math.PI) * this.speed;
+
+        if (Math.abs(x) > 0 || Math.abs(y) > 0) {
+            //console.log("old pos", this.position)
+            this.position.x += x*speedFactor;
+            this.position.y += y*speedFactor;
+            //console.log("new pos", this.position)
+
+            // gradually adjust angle according to wheel angle...
+            const targetAngle = (this.angle + wheel.angle);
+            //console.log("this angle, wheel.angle", this.angle, wheel.angle+Math.PI/2, targetAngle)
+            //debugger;
+            const adjustment = (targetAngle - this.angle)/4;
+
+            this.angle += adjustment*this.speed*speedFactor*turnFactor;
+
         }
     }
 
@@ -708,6 +922,55 @@ class Wheel extends Sprite {
     }
 }
 
+class Button extends Sprite {
+
+    /**
+     * @type {HTMLImageElement}
+     */
+    imgEngineOn;
+    /**
+     * @type {HTMLImageElement}
+     */
+    imgEngineOff;
+
+    constructor() {
+        super(new Position(-410, 30), 35, 35, 2, true);
+        this.zOrder = 2;
+        this.isGUIControl = true;
+    }
+
+    clicked() {
+        if (this.img == this.imgEngineOff) {
+            // start engine...
+            player.car.startEngine();
+        }
+    }
+
+    engineStopped() {
+        this.img = this.imgEngineOff;
+    }
+
+    engineStarted() {
+        this.img = this.imgEngineOn;
+        // play engine start sound..?
+    }
+
+    loadImage() {
+        const promise = super.loadImage(gameFolder + "button.png");
+        this.imgEngineOn = this.img;
+        return promise;
+    }
+
+    loadImageEngineOff() {
+        const promise = super.loadImage(gameFolder + "button_lit.png");
+        this.imgEngineOff = this.img;
+        if (this.imgEngineOn) {
+            this.img = this.imgEngineOn;
+        }
+        return promise;
+    }
+}
+
 class GearBase extends Sprite {
 
     constructor() {
@@ -750,9 +1013,10 @@ class GearStick extends Sprite {
      * 
      * @param {number} moveX 
      * @param {number} moveY 
+     * @param {boolean} doubleTouch
      */
-    move(moveX, moveY) {
-
+    move(moveX, moveY, doubleTouch) {
+        
         // needs to move along "tracks". 
         // Doubleclick or something first, to allow reverse?
         // need rotation or something after tracks movement is working... should be "connected" to base...
@@ -770,65 +1034,67 @@ class GearStick extends Sprite {
                2     4      6  20y
         */
 
-        if (this.headPosition.x >= -30 && this.headPosition.x <= -25) {
-            // reverse, can move between 0 and -20 along y-axis..
-            this.headPosition.y += moveYScaled;
-            if (this.headPosition.y > 0 && moveYScaled > 0) {
-                this.headPosition.y = 0;
+        if (clutch.percentEngaged >= 80) {
+            if (this.headPosition.x >= -40 && this.headPosition.x < -30) {
+                // reverse, can move between 0 and -20 along y-axis..
+                this.headPosition.y += moveYScaled;
+                if (this.headPosition.y > 0 && moveYScaled > 0) {
+                    this.headPosition.y = 0;
+                }
+                if (this.headPosition.y <= -15 && moveYScaled < 0) {
+                    this.headPosition.y = -20;
+                    // in Reverse
+                    this.inGear = Gear.Rev;
+                    //console.log("Rev")
+                }
             }
-            if (this.headPosition.y <= -15 && moveYScaled < 0) {
-                this.headPosition.y = -20;
-                // in Reverse
-                this.inGear = Gear.Rev;
-                //console.log("Rev")
+            else if (this.headPosition.x >= -25 && this.headPosition.x <= -15) {
+                // can move on y-axis from -20 to 20 (1st to 2nd gear)
+                this.headPosition.y += moveYScaled;
+                if (this.headPosition.y > 15 && moveYScaled > 0) {
+                    this.headPosition.y = 20;
+                    // in 2nd gear
+                    this.inGear = Gear.Second;
+                    //console.log("2nd")
+                }
+                if (this.headPosition.y <= -15 && moveYScaled < 0) {
+                    this.headPosition.y = -20;
+                    // in 1st gear
+                    this.inGear = Gear.First;
+                    //console.log("1st")
+                }
             }
-        }
-        else if (this.headPosition.x >= -25 && this.headPosition.x <= -15) {
-            // can move on y-axis from -20 to 20 (1st to 2nd gear)
-            this.headPosition.y += moveYScaled;
-            if (this.headPosition.y > 15 && moveYScaled > 0) {
-                this.headPosition.y = 20;
-                // in 2nd gear
-                this.inGear = Gear.Second;
-                //console.log("2nd")
+            else if (this.headPosition.x >= -5 && this.headPosition.x <= 5) {
+                // can move on y-axis from -20 to 20  (3rd to 4th gear)
+                this.headPosition.y += moveYScaled;
+                if (this.headPosition.y > 15 && moveYScaled > 0) {
+                    this.headPosition.y = 20;
+                    // in 4th gear
+                    this.inGear = Gear.Fourth;
+                    //console.log("4th")
+                }
+                if (this.headPosition.y <= -15 && moveYScaled < 0) {
+                    this.headPosition.y = -20;
+                    // in 3rd gear
+                    this.inGear = Gear.Third;
+                    //console.log("3rd")
+                }
             }
-            if (this.headPosition.y <= -15 && moveYScaled < 0) {
-                this.headPosition.y = -20;
-                // in 1st gear
-                this.inGear = Gear.First;
-                //console.log("1st")
-            }
-        }
-        else if (this.headPosition.x >= -5 && this.headPosition.x <= 5) {
-            // can move on y-axis from -20 to 20  (3rd to 4th gear)
-            this.headPosition.y += moveYScaled;
-            if (this.headPosition.y > 15 && moveYScaled > 0) {
-                this.headPosition.y = 20;
-                // in 4th gear
-                this.inGear = Gear.Fourth;
-                //console.log("4th")
-            }
-            if (this.headPosition.y <= -15 && moveYScaled < 0) {
-                this.headPosition.y = -20;
-                // in 3rd gear
-                this.inGear = Gear.Third;
-                //console.log("3rd")
-            }
-        }
-        else if (this.headPosition.x >= 15 && this.headPosition.x <= 20) {
-            // can move on y-axis from -20 to 20  (5th to 6th gear)
-            this.headPosition.y += moveYScaled;
-            if (this.headPosition.y > 15 && moveYScaled > 0) {
-                this.headPosition.y = 20;
-                // in 6th gear
-                this.inGear = Gear.Sixth;
-                //console.log("6th")
-            }
-            if (this.headPosition.y <= -15 && moveYScaled < 0) {
-                this.headPosition.y = -20;
-                // in 5th gear
-                this.inGear = Gear.Fifth;
-                //console.log("5th")
+            else if (this.headPosition.x >= 15 && this.headPosition.x <= 20) {
+                // can move on y-axis from -20 to 20  (5th to 6th gear)
+                this.headPosition.y += moveYScaled;
+                if (this.headPosition.y > 15 && moveYScaled > 0) {
+                    this.headPosition.y = 20;
+                    // in 6th gear
+                    this.inGear = Gear.Sixth;
+                    //console.log("6th")
+                }
+                if (this.headPosition.y <= -15 && moveYScaled < 0) {
+                    this.headPosition.y = -20;
+                    // in 5th gear
+                    this.inGear = Gear.Fifth;
+                    //console.log("5th")
+                }
             }
         }
 
@@ -836,12 +1102,16 @@ class GearStick extends Sprite {
             this.inGear = null;
         }
 
-        // TODO: Ikke tillat bevegelser under -10 x hvis gir gass eller har fart!!! (skal ikek vaære mulig å sette i revers da)
+        // TODO: Ikke tillat bevegelser under -25 x hvis gir gass eller har fart!!! (skal ikek vaære mulig å sette i revers da)
         if (Math.abs(this.headPosition.y) <= 5) {
             // free on x-axis
             this.headPosition.x += moveXScaled;
+            if ((!doubleTouch || Math.abs(player.car.speed) > 0 || gas.percentEngaged > 0) && this.headPosition.x < -25) {
+                // don't allow rev if 
+                this.headPosition.x = -25;
+            }
             if (this.headPosition.x < -30) {
-                this.headPosition.x = -30;
+                this.headPosition.x = -40;
             }
             if (this.headPosition.x > 20) {
                 this.headPosition.x = 20;
@@ -1085,6 +1355,14 @@ const sound = {
 };
 let soundsLoaded = false;
 
+const keys = {
+    left: false,
+    right: false,
+    up: false,
+    down: false,
+    clutch: false,
+}
+
 /**
  * @type {Wheel}
  */
@@ -1109,6 +1387,10 @@ let brake = null;
  * @type {Clutch}
  */
 let clutch = null;
+/**
+ * @type {Button}
+ */
+let button = null;
 /**
  * @type {Track}
  */
@@ -1212,6 +1494,11 @@ function createEntities() {
     entities.push(dashShadow);
     promises.push(dashShadow.loadImage());
 
+    button = new Button();
+    entities.push(button);
+    promises.push(button.loadImage());
+    promises.push(button.loadImageEngineOff());
+
     wheel = new Wheel();
     entities.push(wheel);
     promises.push(wheel.loadImage());
@@ -1307,9 +1594,22 @@ function movePedalToStartPosition(pedal, delta) {
 }
 
 function updatePedals(delta) {
-    movePedalToStartPosition(gas, delta);
+    if (keys.up) {
+        gas.moveY(-delta*0.1);
+    }
+    else if (keys.down) {
+        gas.moveY(delta*0.1);
+    }
+    else {
+        //movePedalToStartPosition(gas, delta);
+    }
     movePedalToStartPosition(brake, delta);
-    movePedalToStartPosition(clutch, delta);
+    if (keys.clutch) {
+        clutch.moveY(-delta*0.2);
+    }
+    else {
+        movePedalToStartPosition(clutch, delta);
+    }
 }
 
 /**
@@ -1327,7 +1627,7 @@ function loadSounds() {
         Sounds.sounds.whenLoaded = () => {
             sound.engine.s = Sounds.sounds[sound.engine.src];
             soundsLoaded = true;
-            resolve()
+            resolve();
         };
     });
     promises.push(promise);
@@ -1343,13 +1643,61 @@ function assetsLoaded() {
 }
 
 
+
+function keyDown(e) {
+    if (e.code === "ArrowUp" || e.key.toUpperCase() == "W") {
+        keys.up = true;
+    } else if (e.code === "ArrowDown" || e.key.toUpperCase() == "S") {
+        keys.down = true;
+    } else if (e.code === "ArrowLeft" || e.key.toUpperCase() == "A") {
+        keys.left = true;
+    } else if (e.code === "ArrowRight" || e.key.toUpperCase() == "D") {
+        keys.right = true;
+    } else if (e.key.toUpperCase() == "Q") {
+        keys.clutch = true;
+    }
+    else if (e.code === "Space" || e.code === "Enter") {
+        // not sure yet...   
+        //keys.hit = true;
+        
+    }
+}
+
+function keyUp(e) {
+    if (e.code === "ArrowUp" || e.key.toUpperCase() == "W") {
+        keys.up = false;
+    } else if (e.code === "ArrowDown" || e.key.toUpperCase() == "S") {
+        keys.down = false;
+    } else if (e.code === "ArrowLeft" || e.key.toUpperCase() == "A") {
+        keys.left = false;
+    } else if (e.code === "ArrowRight" || e.key.toUpperCase() == "D") {
+        keys.right = false;
+    } else if (e.key.toUpperCase() == "Q") {
+        keys.clutch = false;
+    }
+    else if (e.code === "Space" || e.code === "Enter") {
+        /*const plr = player; // testing with close player
+        ball.reset(plr);
+        ball.testShoot(plr);*/
+        //keys.hit = false;
+        //keys.hit = 10;
+        //player.hit();
+    }
+}
+
+
 /**
- * @type {Array.<{identifier: string, pageX: number, pageY: number, touching: Sprite}>}
+ * @type {Array.<{identifier: string, pageX: number, pageY: number, touching: Sprite, doubleTouch: boolean}>}
  */
 let ongoingTouches = [];
 
+/**
+ * 
+ * @param {{ identifier: string, pageX: number, pageY: number }} param0 
+ * @returns {{identifier: string, pageX: number, pageY: number, touching: Sprite, doubleTouch: boolean}}
+ */
 function copyTouch({ identifier, pageX, pageY }) {
-    return { identifier, pageX, pageY };
+    return { identifier, pageX, pageY, doubleTouch: false };
 }
 
 function ongoingTouchIndexById(idToFind) {
@@ -1362,6 +1710,11 @@ function ongoingTouchIndexById(idToFind) {
     }
     return -1; // not found
 }
+
+/**
+ * @type {{identifier: string, pageX: number, pageY: number, touching: Sprite, when: number}}
+ */
+let lastTouch = null;
 
 /**
  * 
@@ -1382,6 +1735,18 @@ function touchStart(event) {
                 t.touching = entity;
             }
         }
+
+        if (lastTouch != null && lastTouch.touching == t.touching && Date.now() - lastTouch.when <= 300) {
+            // doubletouch..
+            t.doubleTouch = true;
+        }
+        else {
+            if (t.touching) {
+                lastTouch = t;
+                lastTouch.when = Date.now();
+            }
+            t.doubleTouch = false;
+        }
     }
 }
 
@@ -1396,6 +1761,7 @@ function touchMove(event) {
             // old pos in ongoingTouches[idx], new in touch
             const prevTouch = ongoingTouches[idx];
             const newTouch = copyTouch(touch);
+            newTouch.doubleTouch = prevTouch.doubleTouch;
             const entity = prevTouch.touching;
             if (entity) {
 
@@ -1419,7 +1785,8 @@ function touchMove(event) {
                         angleDiff = 0;
                     }
                     wheel.angle += angleDiff;
-                    const maxAngle = Math.PI*2-Math.PI/4;
+                    //const maxAngle = Math.PI*2-Math.PI/4;
+                    const maxAngle = Math.PI*2; // max complete turn either way
                     if (wheel.angle >= maxAngle) {
                         wheel.angle = maxAngle;
                     }
@@ -1450,7 +1817,7 @@ function touchMove(event) {
                     const diffX = newTouch.pageX - prevTouch.pageX;
                     const diffY = newTouch.pageY - prevTouch.pageY;
 
-                    entity.move(diffX, diffY);
+                    entity.move(diffX, diffY, prevTouch.doubleTouch);
                 }
 
             }
@@ -1477,12 +1844,24 @@ function touchEnd(event) {
             const prevTouch = ongoingTouches[idx];
 
             // last movement in touch.pageX/Y...
-
+            if (prevTouch.touching && prevTouch.touching.clicked) {
+                prevTouch.touching.clicked();
+            }
+            
             ongoingTouches.splice(idx, 1); // remove touch..
         }
     }
 }
 
+function setupKeyListeners() {
+    addEventListener("keydown", keyDown);
+    addEventListener("keyup", keyUp);
+}
+
+function removeKeyListeners() {
+    removeEventListener("keydown", keyDown);
+    removeEventListener("keyup", keyUp);
+}
 
 function registerTouchListeners() {
     mainDiv.addEventListener("touchstart", touchStart);
@@ -1562,11 +1941,11 @@ export function initialize(parentClss) {
     touchImg.style.top = (window.innerHeight - touchDiv.getBoundingClientRect().top)/2 - 100 + "px";
     touchImg.id = "touchImg";
     touchImg.innerHTML = '<circle class="innerCircle" cx="100" cy="100" r="30" style="fill: red; stroke: black;"></circle> <circle class="outerCircle" cx="100" cy="100" r="90" style="fill: none; stroke: red; stroke-width: 3px"></circle>';
-    touchDiv.appendChild(touchImg);
+    touchDiv.appendChild(touchImg);*/
 
     // setup listeners (keys/mouse/touch++, 
     setupKeyListeners();
-    setupMouseListeners();*/
+    //setupMouseListeners();
     registerTouchListeners();
     
     // prolly need onresize, too, since that changes size of canvas...
@@ -1601,10 +1980,10 @@ export function uninitialize() {
     destroyEntities();
     unLoadSounds(); // does nothing for now...
 
-    /*// remove listeners (keys/mouse/touch++)
+    // remove listeners (keys/mouse/touch++)
     removeEventListener("resize", onResize);
     removeKeyListeners();
-    removeMouseListeners();*/
+    //removeMouseListeners();
     unRegisterTouchListeners();
     /*// unload images?? (possible?) (should be just to remove any references to them...)
 
